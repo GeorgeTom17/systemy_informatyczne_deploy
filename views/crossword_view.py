@@ -177,99 +177,124 @@ def show_crossword_view(student_mode=False):
                     grid_html += f'<div class="cell input-cell"><input type="text" maxlength="1" id="input-{r}-{c}" data-row="{r}" data-col="{c}" data-correct="{correct_letter}" data-parent-across="{p_across}" data-parent-down="{p_down}"></div>'
 
         # FULL HTML
+                # ... (wcześniejszy kod generowania grid_html bez zmian) ...
+
+                # 3c. Full HTML (RESPONSYWNY CSS)
         full_html = f"""
         <!DOCTYPE html>
         <html>
         <head>
+        <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
         <style>
+            /* 1. ZMIENNE CSS - STEROWANIE ROZMIARAMI */
+            :root {{
+                --cell-size: 35px;      /* Domyślny rozmiar (Desktop) */
+                --font-size: 20px;
+                --num-size: 11px;
+                --gap-size: 2px;
+            }}
+
+            /* 2. MEDIA QUERY DLA TELEFONÓW (Ekran węższy niż 600px) */
+            @media (max-width: 600px) {{
+                :root {{
+                    --cell-size: 26px;  /* Mniejszy rozmiar na telefon */
+                    --font-size: 14px;  /* Mniejsza czcionka wpisywania */
+                    --num-size: 9px;    /* Mniejszy numerek */
+                    --gap-size: 1px;    /* Cieńsze linie */
+                }}
+
+                /* Dodatkowe marginesy na telefonie, żeby łatwiej przewijać */
+                body {{
+                    padding: 5px 0 !important;
+                }}
+            }}
+
             body {{
                 font-family: sans-serif;
                 background-color: transparent;
                 margin: 0;
-                padding: 10px;
+                padding: 10px 0;
                 width: 100%;
+                text-align: center;
                 box-sizing: border-box;
-                display: flex;
-                justify-content: center;
-            }}
-
-            .main-container {{
-                display: flex;
-                flex-direction: row;
-                align-items: flex-start;
-                gap: 20px;
-                width: fit-content;
+                /* Zapobieganie przypadkowemu zoomowaniu na iOS przy klikaniu w input */
+                touch-action: manipulation; 
             }}
 
             .crossword {{
                 display: grid;
-                grid-template-columns: repeat({COLS}, 35px);
-                grid-template-rows: repeat({ROWS}, 35px);
-                gap: 2px;
+                /* Używamy zmiennej --cell-size zamiast sztywnych 35px */
+                grid-template-columns: repeat({COLS}, var(--cell-size));
+                grid-template-rows: repeat({ROWS}, var(--cell-size));
+                gap: var(--gap-size);
                 background: #222;
-                padding: 5px;
+                padding: 4px;
                 border-radius: 4px;
-                box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+
+                /* Centrowanie */
+                width: fit-content;
+                margin: 0 auto;
+                box-shadow: 0 2px 6px rgba(0,0,0,0.2);
             }}
 
-            .keyboard-panel {{
-                display: flex;
-                flex-direction: column;
-                gap: 5px;
-                background: #f0f2f6;
-                padding: 10px;
-                border-radius: 8px;
-                border: 1px solid #ccc;
-                max-width: 60px;
+            .cell {{ 
+                width: var(--cell-size); 
+                height: var(--cell-size); 
+                position: relative; 
+                box-sizing: border-box; 
             }}
-            .kb-header {{
-                font-size: 10px;
-                font-weight: bold;
-                text-align: center;
-                color: #555;
-                margin-bottom: 5px;
-            }}
-            .kb-btn {{
-                width: 40px;
-                height: 40px;
-                font-size: 18px;
-                font-weight: bold;
-                cursor: pointer;
-                background-color: white;
-                border: 1px solid #999;
-                border-radius: 4px;
-                transition: background 0.2s;
-            }}
-            .kb-btn:hover {{ background-color: #e6e6e6; }}
-            .kb-btn:active {{ background-color: #ccc; transform: translateY(1px); }}
 
-            .cell {{ width: 35px; height: 35px; position: relative; box-sizing: border-box; }}
             .block {{ background: #000; }}
+
             .number-cell {{
-                background-color: #FF8C00; color: white; font-weight: bold;
-                display: flex; justify-content: center; align-items: center;
-                font-size: 16px; cursor: help; position: relative;
+                background-color: #FF8C00; 
+                color: white; 
+                font-weight: bold;
+                display: flex; 
+                justify-content: center; 
+                align-items: center;
+                font-size: var(--font-size); /* Zmieniony rozmiar dla numeru? Nie, numer ma swój, to błąd w myśleniu, poprawka niżej */
+                font-size: calc(var(--cell-size) * 0.5); /* Rozmiar numerka to połowa kratki */
+                cursor: help; 
+                position: relative;
             }}
+
+            /* Dymek definicji - musi być czytelny na mobile */
             .tooltip {{
                 visibility: hidden; opacity: 0; background-color: #333; color: #fff;
                 text-align: center; padding: 8px; border-radius: 5px;
-                position: absolute; bottom: 115%; left: 50%; transform: translateX(-50%);
-                z-index: 1000; width: max-content; max-width: 250px;
-                font-size: 13px; font-weight: normal; box-shadow: 0px 4px 10px rgba(0,0,0,0.4);
+                position: absolute; 
+                bottom: 120%; /* Wyżej nad palcem */
+                left: 50%; transform: translateX(-50%);
+                z-index: 2000; 
+                width: max-content; max-width: 280px; /* Szerszy na mobile */
+                font-size: 14px; 
+                font-weight: normal; 
+                box-shadow: 0px 4px 10px rgba(0,0,0,0.4);
                 transition: opacity 0.2s; pointer-events: none;
+                white-space: normal; /* Zawijanie tekstu */
             }}
+
             .tooltip::after {{
                 content: ""; position: absolute; top: 100%; left: 50%; margin-left: -5px;
                 border-width: 5px; border-style: solid; border-color: #333 transparent transparent transparent;
             }}
+
             .number-cell:hover .tooltip, .tooltip.force-visible {{ visibility: visible; opacity: 1; }}
+
             .input-cell {{ background: #fff; }}
+
             .input-cell input {{
                 width: 100%; height: 100%; padding: 0; margin: 0;
-                font-size: 20px; color: black; text-align: center; border: none;
-                background: #fff; font-weight: bold; text-transform: uppercase; display: block;
+                font-size: var(--font-size); /* Responsywna czcionka */
+                color: black; text-align: center; border: none;
+                background: #fff; font-weight: bold; text-transform: uppercase; 
+                display: block;
+                border-radius: 0; /* Ważne na iOS, usuwa zaokrąglenia */
+                -webkit-appearance: none; /* Usuwa style systemowe iOS */
             }}
-            .input-cell input:focus {{ outline: 3px solid #1e90ff; background-color: #e8f0fe; }}
+
+            .input-cell input:focus {{ outline: 2px solid #1e90ff; background-color: #e8f0fe; }}
             .input-cell input.valid {{ background-color: #d4edda; color: #155724; }}
             .input-cell input.invalid {{ background-color: #f8d7da; color: #721c24; }}
         </style>
@@ -279,11 +304,16 @@ def show_crossword_view(student_mode=False):
                 <div class="crossword">
                     {grid_html}
                 </div>
-                {keyboard_html}
-            </div>
+                </div>
 
             <script>
+                // ... (Wklej tutaj cały JavaScript z poprzedniej wersji - ten z obsługą touch/click i auto-jump)
+                // Pamiętaj tylko o jednej zmianie w JS dla mobile:
+                // Zdarzenie 'focus' na telefonach może przywoływać klawiaturę ekranową, co przesuwa ekran.
+                // Obecny skrypt jest ok, ale 'window.typeChar' z wirtualnej klawiatury jest kluczowy na mobile.
+
                 const wordOrder = {json_words};
+
                 let currentDirection = 'across';
                 let lastFocusedInput = null;
 
@@ -297,18 +327,25 @@ def show_crossword_view(student_mode=False):
                 }}
 
                 function updateTooltip(input) {{
-                    document.querySelectorAll('.tooltip.force-visible').forEach(el => {{ el.classList.remove('force-visible'); }});
-                    const pAcross = input.getAttribute('data-parent-across');
-                    const pDown = input.getAttribute('data-parent-down');
+                    document.querySelectorAll('.tooltip.force-visible').forEach(el => {{
+                        el.classList.remove('force-visible');
+                    }});
+                    const parentAcross = input.getAttribute('data-parent-across');
+                    const parentDown = input.getAttribute('data-parent-down');
                     let targetId = null;
-                    if (pAcross && !pDown) targetId = pAcross;
-                    else if (!pAcross && pDown) targetId = pDown;
-                    else if (pAcross && pDown) targetId = (currentDirection === 'across') ? pAcross : pDown;
+
+                    if (parentAcross && !parentDown) targetId = parentAcross;
+                    else if (!parentAcross && parentDown) targetId = parentDown;
+                    else if (parentAcross && parentDown) targetId = (currentDirection === 'across') ? parentAcross : parentDown;
+
                     if (targetId) {{
-                        const cell = document.getElementById(targetId);
-                        if (cell) {{
-                            const tt = cell.querySelector('.tooltip');
-                            if (tt) tt.classList.add('force-visible');
+                        const numberCell = document.getElementById(targetId);
+                        if (numberCell) {{
+                            const tooltip = numberCell.querySelector('.tooltip');
+                            if (tooltip) tooltip.classList.add('force-visible');
+
+                            // Na mobile: Scrollujemy, jeśli tooltip wyjdzie poza ekran?
+                            // Na razie zostawmy standardowy CSS.
                         }}
                     }}
                 }}
@@ -318,17 +355,30 @@ def show_crossword_view(student_mode=False):
                         let r = w.r; let c = w.c; let dir = w.dir;
                         let dr = (dir === 'across') ? 0 : 1;
                         let dc = (dir === 'across') ? 1 : 0;
-                        let isWordFull = true; let firstEmpty = null;
-                        let currR = r + dr; let currC = c + dc;
+
+                        let isWordFull = true;
+                        let firstEmptyInput = null;
+
+                        let currR = r + dr;
+                        let currC = c + dc;
+
                         while (true) {{
                             let el = document.getElementById("input-" + currR + "-" + currC);
                             if (!el) break;
-                            if (el.value.length === 0) {{ isWordFull = false; if (!firstEmpty) firstEmpty = el; }}
-                            currR += dr; currC += dc;
+
+                            if (el.value.length === 0) {{
+                                isWordFull = false;
+                                if (!firstEmptyInput) firstEmptyInput = el;
+                            }}
+
+                            currR += dr;
+                            currC += dc;
                         }}
-                        if (!isWordFull && firstEmpty) {{
+
+                        if (!isWordFull && firstEmptyInput) {{
                             currentDirection = dir;
-                            firstEmpty.focus(); firstEmpty.select();
+                            firstEmptyInput.focus();
+                            // firstEmptyInput.select(); // Na mobile select() czasem irytuje
                             return;
                         }}
                     }}
@@ -343,59 +393,73 @@ def show_crossword_view(student_mode=False):
                         if (input.value.length === 0) {{
                             if (currentDirection === 'across') c--;
                             if (currentDirection === 'down') r--;
-                            const t = document.getElementById("input-" + r + "-" + c);
-                            if (t) {{ e.preventDefault(); t.focus(); t.select(); }}
+
+                            const target = document.getElementById("input-" + r + "-" + c);
+                            if (target) {{
+                                e.preventDefault();
+                                target.focus();
+                            }}
                         }}
                         return;
                     }}
+
                     if (!['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) return;
+
                     if (e.key === 'ArrowUp') {{ r--; currentDirection = 'down'; }}
                     if (e.key === 'ArrowDown') {{ r++; currentDirection = 'down'; }}
                     if (e.key === 'ArrowLeft') {{ c--; currentDirection = 'across'; }}
                     if (e.key === 'ArrowRight') {{ c++; currentDirection = 'across'; }}
-                    const t = document.getElementById("input-" + r + "-" + c);
-                    if (t) {{ e.preventDefault(); t.focus(); t.select(); }}
+
+                    const target = document.getElementById("input-" + r + "-" + c);
+                    if (target) {{
+                        e.preventDefault();
+                        target.focus();
+                    }}
                 }}
 
                 function handleInput(e) {{
                     const input = e.target;
-                    processInputLogic(input);
-                }}
-
-                function processInputLogic(input) {{
                     validate(input);
+
                     if (input.value.length === 1) {{
                         let r = parseInt(input.getAttribute('data-row'));
                         let c = parseInt(input.getAttribute('data-col'));
+
                         let dr = (currentDirection === 'across') ? 0 : 1;
                         let dc = (currentDirection === 'across') ? 1 : 0;
-                        let found = false;
-                        let nR = r; let nC = c;
+
+                        let foundNextInWord = false;
+                        let nextR = r;
+                        let nextC = c;
+
                         while(true) {{
-                            nR += dr; nC += dc;
-                            const t = document.getElementById("input-" + nR + "-" + nC);
-                            if (!t) break;
-                            if (t.value.length === 0) {{ t.focus(); t.select(); found = true; break; }}
+                            nextR += dr;
+                            nextC += dc;
+                            const nextTarget = document.getElementById("input-" + nextR + "-" + nextC);
+
+                            if (!nextTarget) break;
+
+                            if (nextTarget.value.length === 0) {{
+                                nextTarget.focus();
+                                foundNextInWord = true;
+                                break;
+                            }}
                         }}
-                        if (!found) checkAndJumpToNextWord();
+
+                        if (!foundNextInWord) {{
+                            checkAndJumpToNextWord();
+                        }}
                     }}
                 }}
 
-                window.typeChar = function(char) {{
-                    if (lastFocusedInput) {{
-                        lastFocusedInput.value = char;
-                        lastFocusedInput.focus();
-                        processInputLogic(lastFocusedInput);
-                    }}
-                }};
-
                 function handleFocus(input) {{
-                    lastFocusedInput = input;
-                    const pa = input.getAttribute('data-parent-across');
-                    const pd = input.getAttribute('data-parent-down');
-                    if (pa && !pd) currentDirection = 'across';
-                    if (!pa && pd) currentDirection = 'down';
-                    input.select();
+                    const pAcross = input.getAttribute('data-parent-across');
+                    const pDown = input.getAttribute('data-parent-down');
+
+                    if (pAcross && !pDown) currentDirection = 'across';
+                    if (!pAcross && pDown) currentDirection = 'down';
+
+                    // input.select(); // Opcjonalne na mobile
                     updateTooltip(input);
                 }}
 
@@ -405,9 +469,12 @@ def show_crossword_view(student_mode=False):
                     input.addEventListener('keydown', moveFocus);
                     input.addEventListener('focus', function() {{ handleFocus(this); }});
                 }});
+
                 document.body.addEventListener('click', function(e) {{
-                    if (e.target.tagName !== 'INPUT' && !e.target.classList.contains('kb-btn')) {{
-                         document.querySelectorAll('.tooltip.force-visible').forEach(el => {{ el.classList.remove('force-visible'); }});
+                    if (e.target.tagName !== 'INPUT') {{
+                         document.querySelectorAll('.tooltip.force-visible').forEach(el => {{
+                            el.classList.remove('force-visible');
+                        }});
                     }}
                 }});
             </script>
@@ -415,7 +482,10 @@ def show_crossword_view(student_mode=False):
         </html>
         """
 
-        iframe_height = (ROWS * 37) + 60
+        # Obliczamy wysokość iframe'a (na mobile może być inna, ale Python tego nie wie)
+        # Ustawiamy wysokość na podstawie desktopu (35px), na mobile po prostu będzie trochę luzu na dole,
+        # co jest akceptowalne (pozwala na przewijanie).
+        iframe_height = (ROWS * 35) + 60
         components.html(full_html, height=iframe_height, scrolling=True)
 
         if not student_mode:
