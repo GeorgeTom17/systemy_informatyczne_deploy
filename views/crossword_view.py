@@ -6,9 +6,9 @@ from utils.data_manager import load_words, get_all_sets
 from utils.export_code_manager import encode_crossword
 from utils.qr_manager import generate_qr_image
 
+#NIE RUSZAĆ !!!!! JAK KTOŚ TEN LINK ZMIENI TO WIDZIMY SIĘ ZA GARAŻAMI
 APP_BASE_URL = "https://systemyinformatycznedeploy-3crdjb98tkhzrmwgfuccaz.streamlit.app"
 
-# Znaki specjalne
 SPECIAL_CHARACTERS = {
     "Polski": "ĄĆĘŁŃÓŚŹŻ",
     "Niemiecki": "ÄÖÜß",
@@ -19,17 +19,12 @@ SPECIAL_CHARACTERS = {
 }
 
 
-# Dodajemy parametr student_mode=False
 def show_crossword_view(student_mode=False):
-    # Jeśli to uczeń, nie pokazujemy nagłówka "Generator"
     if not student_mode:
-        st.title("🧩 Generator Krzyżówek")
+        st.title("Generator Krzyżówek")
     else:
-        st.title("🎓 Rozwiąż Krzyżówkę")
+        st.title("Rozwiąż Krzyżówkę")
 
-    # ==================================================
-    # 1. LOGIKA ZARZĄDZANIA (TYLKO DLA NAUCZYCIELA)
-    # ==================================================
     if not student_mode:
         available_sets = get_all_sets()
         is_imported = st.session_state.get('last_set') == "Imported"
@@ -46,7 +41,6 @@ def show_crossword_view(student_mode=False):
         if target_set and target_set in available_sets:
             default_index = available_sets.index(target_set)
 
-        # Panel sterowania nauczyciela
         col_sel, col_empty = st.columns([3, 1])
         with col_sel:
             selected_set = st.selectbox(
@@ -66,9 +60,8 @@ def show_crossword_view(student_mode=False):
                 st.session_state.current_view = 'main_menu'
                 st.rerun()
 
-        # Logika generowania
         if is_imported and not generate_clicked:
-            st.info("💡 To jest zaimportowana/wczytana krzyżówka.")
+            st.info("To jest zaimportowana/wczytana krzyżówka.")
             should_generate = False
         else:
             should_generate = (
@@ -77,7 +70,6 @@ def show_crossword_view(student_mode=False):
                     (st.session_state.get('last_set') != selected_set and not is_imported)
             )
 
-        # 2. GENEROWANIE (Tylko Nauczyciel)
         if should_generate:
             all_words = load_words(selected_set)
             if len(all_words) < 2:
@@ -103,16 +95,10 @@ def show_crossword_view(student_mode=False):
                 st.session_state.last_set = selected_set
 
     else:
-        # LOGIKA DLA UCZNIA (Brak generowania, tylko odczyt)
         if 'crossword_data' not in st.session_state:
             st.error("Brak danych krzyżówki. Zeskanuj kod ponownie.")
             return
 
-    # ==================================================
-    # 3. RENDEROWANIE (WSPÓLNE DLA OBU)
-    # ==================================================
-
-    # Pobieranie języka (dla klawiatury)
     current_lang = st.session_state.get('crossword_language', 'Polski')
     chars_to_show = SPECIAL_CHARACTERS.get(current_lang, SPECIAL_CHARACTERS['Polski'])
 
@@ -120,7 +106,6 @@ def show_crossword_view(student_mode=False):
         grid, clues_across, clues_down, word_starts = st.session_state.crossword_data
         ROWS, COLS = grid.shape
 
-        # Pre-kalkulacja (bez zmian)
         cell_parents = {}
         all_words_list = []
         for r in range(ROWS):
@@ -149,7 +134,6 @@ def show_crossword_view(student_mode=False):
         sorted_words_for_js = downs + acrosses
         json_words = json.dumps(sorted_words_for_js)
 
-        # Budowanie klawiatury wirtualnej
         keyboard_html = ""
         if chars_to_show:
             keyboard_html += '<div class="keyboard-panel">'
@@ -158,7 +142,6 @@ def show_crossword_view(student_mode=False):
                 keyboard_html += f'<button class="kb-btn" onclick="typeChar(\'{char}\')">{char}</button>'
             keyboard_html += '</div>'
 
-        # Generowanie Grid HTML
         grid_html = ""
         for r in range(ROWS):
             for c in range(COLS):
@@ -176,7 +159,6 @@ def show_crossword_view(student_mode=False):
                     p_down = parents.get('down', '')
                     grid_html += f'<div class="cell input-cell"><input type="text" maxlength="1" id="input-{r}-{c}" data-row="{r}" data-col="{c}" data-correct="{correct_letter}" data-parent-across="{p_across}" data-parent-down="{p_down}"></div>'
 
-                # 3c. Full HTML (RESPONSYWNY + SCROLLOWANIE)
         full_html = f"""
         <!DOCTYPE html>
         <html>
@@ -191,7 +173,7 @@ def show_crossword_view(student_mode=False):
 
             @media (max-width: 600px) {{
                 :root {{
-                    --cell-size: 26px; /* Mniejsze kratki na mobile */
+                    --cell-size: 26px;
                     --font-size: 14px;
                     --gap-size: 1px;
                 }}
@@ -205,23 +187,19 @@ def show_crossword_view(student_mode=False):
                 width: 100%;
                 box-sizing: border-box;
                 touch-action: manipulation;
-                /* Usunięto flex z body, bo powodował ucinanie przy szerokich siatkach */
             }}
 
-            /* Nowy kontener do scrollowania */
             .scroll-wrapper {{
                 width: 100%;
-                overflow-x: auto; /* Kluczowe: pozwala przewijać na boki */
+                overflow-x: auto;
                 display: flex;
-                justify-content: center; /* Centruje, jeśli się mieści */
+                justify-content: center;
                 justify-items: center;
-                padding-bottom: 20px; /* Miejsce na pasek przewijania */
+                padding-bottom: 20px;
 
-                /* Ważne dla mobile: wymusza start od lewej jeśli się nie mieści */
                 justify-content: safe center; 
             }}
 
-            /* Fallback dla przeglądarek nieobsługujących 'safe center' */
             @supports not (justify-content: safe center) {{
                 .scroll-wrapper {{
                     display: block;
@@ -230,8 +208,8 @@ def show_crossword_view(student_mode=False):
             }}
 
             .main-container {{
-                display: inline-block; /* Dopasowuje się do zawartości */
-                padding: 0 10px; /* Margines bezpieczeństwa na telefonie */
+                display: inline-block;
+                padding: 0 10px;
             }}
 
             .crossword {{
@@ -243,7 +221,7 @@ def show_crossword_view(student_mode=False):
                 padding: 4px;
                 border-radius: 4px;
                 box-shadow: 0 2px 6px rgba(0,0,0,0.2);
-                margin: 0 auto; /* Centrowanie wewnątrz scroll-wrapper */
+                margin: 0 auto;
             }}
 
             .cell {{ width: var(--cell-size); height: var(--cell-size); position: relative; box-sizing: border-box; }}
@@ -324,11 +302,6 @@ def show_crossword_view(student_mode=False):
                         if (numberCell) {{
                             const tooltip = numberCell.querySelector('.tooltip');
                             if (tooltip) tooltip.classList.add('force-visible');
-
-                            // Logika scrollowania do tooltipa (opcjonalna)
-                            // const rect = tooltip.getBoundingClientRect();
-                            // if (rect.left < 0) tooltip.style.left = '0';
-                            // ...
                         }}
                     }}
                 }}
@@ -435,29 +408,21 @@ def show_crossword_view(student_mode=False):
         </html>
         """
 
-        # Obliczamy wysokość iframe'a (na mobile może być inna, ale Python tego nie wie)
-        # Ustawiamy wysokość na podstawie desktopu (35px), na mobile po prostu będzie trochę luzu na dole,
-        # co jest akceptowalne (pozwala na przewijanie).
         iframe_height = (ROWS * 35) + 60
         components.html(full_html, height=iframe_height, scrolling=True)
 
         if not student_mode:
-            # W tym miejscu wstawiamy zmieniony kod QR z LINKIEM
 
             with col_export:
-                with st.popover("📤 Udostępnij Uczniom", use_container_width=True):
+                with st.popover("Udostępnij Uczniom", use_container_width=True):
                     st.subheader("Kod dla Ucznia")
 
-                    # 1. Pobieramy "surowe" dane
                     raw_code = encode_crossword(st.session_state.crossword_data)
 
-                    # 2. Tworzymy PEŁNY LINK
-                    # Jeśli nie zmieniłeś APP_BASE_URL na górze, kod QR nie zadziała poprawnie!
                     full_link = f"{APP_BASE_URL}/?data={raw_code}"
 
                     st.success("Zeskanuj ten kod telefonem, aby otworzyć krzyżówkę!")
 
-                    # Generowanie QR z linkiem
                     qr_img = generate_qr_image(full_link)
                     st.image(qr_img, use_container_width=True)
 
@@ -465,9 +430,6 @@ def show_crossword_view(student_mode=False):
                     st.caption("Lub skopiuj link bezpośredni:")
                     st.code(full_link, language="text")
 
-            # ==================================================
-            # 5. DEFINICJE (WSPÓLNE)
-            # ==================================================
         st.markdown("---")
         c1, c2 = st.columns(2)
         with c1:
