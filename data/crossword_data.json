@@ -1,0 +1,486 @@
+[
+    {
+        "word": "JĘZYK",
+        "clue": "System znaków używany do komunikacji między ludźmi"
+    },
+    {
+        "word": "SŁOWO",
+        "clue": "Najmniejsza jednostka znaczeniowa w języku"
+    },
+    {
+        "word": "GRAMATYKA",
+        "clue": "Zbiór reguł rządzących poprawnym użyciem języka"
+    },
+    {
+        "word": "APP",
+        "clue": "Skrót od 'Application', czyli program komputerowy"
+    },
+    {
+        "word": "PYTHON",
+        "clue": "Popularny język programowania wysokiego poziomu"
+    },
+    {
+        "word": "STREAMLIT",
+        "clue": "Framework do tworzenia aplikacji webowych w Pythonie"
+    },
+    {
+        "word": "KOD",
+        "clue": "Zbiór instrukcji dla komputera"
+    },
+    {
+        "word": "KOT",
+        "clue": "Małe ssaki domowe, które lubią mruczeć"
+    },
+    {
+        "word": "PIES",
+        "clue": "Domowe zwierzę często towarzyszące ludziom"
+    },
+    {
+        "word": "DOM",
+        "clue": "Miejsce, w którym mieszkają ludzie"
+    },
+    {
+        "word": "GÓRA",
+        "clue": "Wzniesienie terenu, większe od pagórka"
+    },
+    {
+        "word": "LAS",
+        "clue": "Duży obszar porośnięty drzewami"
+    },
+    {
+        "word": "RZEKA",
+        "clue": "Naturalny ciek wodny płynący w określonym korycie"
+    },
+    {
+        "word": "JEZIORO",
+        "clue": "Stojący zbiornik wody"
+    },
+    {
+        "word": "AUTO",
+        "clue": "Pojazd silnikowy do transportu ludzi lub rzeczy"
+    },
+    {
+        "word": "KSIĄŻKA",
+        "clue": "Zbiór zapisanych stron z tekstem lub ilustracjami"
+    },
+    {
+        "word": "STOŁ",
+        "clue": "Mebel z płaskim blatem do pracy lub jedzenia"
+    },
+    {
+        "word": "KRZESŁO",
+        "clue": "Mebel do siedzenia, zazwyczaj z oparciem"
+    },
+    {
+        "word": "KOMPUTER",
+        "clue": "Maszyna elektroniczna do przetwarzania danych"
+    },
+    {
+        "word": "MONITOR",
+        "clue": "Urządzenie wyświetlające obraz z komputera"
+    },
+    {
+        "word": "KLAVISZ",
+        "clue": "Element klawiatury służący do wprowadzania danych"
+    },
+    {
+        "word": "MYSZKA",
+        "clue": "Urządzenie wskazujące na ekranie komputera"
+    },
+    {
+        "word": "TELEFON",
+        "clue": "Urządzenie do komunikacji głosowej i tekstowej"
+    },
+    {
+        "word": "TABLET",
+        "clue": "Przenośne urządzenie z ekranem dotykowym"
+    },
+    {
+        "word": "OKNO",
+        "clue": "Przeszklenie w ścianie pozwalające wpuszczać światło"
+    },
+    {
+        "word": "DRZWI",
+        "clue": "Przesuwany lub otwierany element wejścia do pomieszczenia"
+    },
+    {
+        "word": "ŁÓŻKO",
+        "clue": "Mebel do spania"
+    },
+    {
+        "word": "LAMPKA",
+        "clue": "Urządzenie służące do oświetlania"
+    },
+    {
+        "word": "ZEGAR",
+        "clue": "Urządzenie pokazujące czas"
+    },
+    {
+        "word": "KALENDARZ",
+        "clue": "Narzędzie do planowania dni i wydarzeń"
+    },
+    {
+        "word": "SAMOCHÓD",
+        "clue": "Pojazd silnikowy do przewozu osób"
+    },
+    {
+        "word": "ROWER",
+        "clue": "Pojazd napędzany siłą mięśni, posiada dwa koła"
+    },
+    {
+        "word": "MOTOCYKL",
+        "clue": "Pojazd silnikowy na dwóch kołach"
+    },
+    {
+        "word": "AUTOBUS",
+        "clue": "Duży pojazd przewożący wiele osób"
+    },
+    {
+        "word": "TRAMWAJ",
+        "clue": "Pojazd szynowy poruszający się po torach w mieście"
+    },
+    {
+        "word": "PIASEK",
+        "clue": "Małe ziarenka mineralne tworzące plaże i pustynie"
+    },
+    {
+        "word": "KAMIEN",
+        "clue": "Twardy fragment skalny"
+    },
+    {
+        "word": "SKAŁA",
+        "clue": "Duży fragment masy skalnej"
+    },
+    {
+        "word": "WODA",
+        "clue": "Nieprzezroczysta ciecz niezbędna do życia"
+    },
+    {
+        "word": "OGIEŃ",
+        "clue": "Proces spalania wydzielający ciepło i światło"
+    },
+    {
+        "word": "ZIEMIA",
+        "clue": "Planeta, na której żyjemy"
+    },
+    {
+        "word": "SŁOŃCE",
+        "clue": "Gwiazda będąca źródłem światła i ciepła"
+    },
+    {
+        "word": "KSIĘŻYC",
+        "clue": "Naturalny satelita Ziemi"
+    },
+    {
+        "word": "GWIAZDA",
+        "clue": "Ogromna kula gazowa emitująca światło"
+    },
+    {
+        "word": "PLANETA",
+        "clue": "Ciało niebieskie krążące wokół gwiazdy"
+    },
+    {
+        "word": "SATELITA",
+        "clue": "Obiekt orbitujący wokół planety lub gwiazdy"
+    },
+    {
+        "word": "STATEK",
+        "clue": "Pojazd poruszający się po wodzie"
+    },
+    {
+        "word": "ŁÓDŹ",
+        "clue": "Mały pojazd wodny"
+    },
+    {
+        "word": "SAMOLOT",
+        "clue": "Pojazd latający w powietrzu"
+    },
+    {
+        "word": "HELIKOPTER",
+        "clue": "Pojazd latający pionowo za pomocą wirnika"
+    },
+    {
+        "word": "ROWER",
+        "clue": "Pojazd napędzany siłą mięśni, posiada dwa koła"
+    },
+    {
+        "word": "PIŁKA",
+        "clue": "Kulisty przedmiot do gier i sportu"
+    },
+    {
+        "word": "RĘKAWICZKA",
+        "clue": "Ochrona dłoni, często z materiału lub skóry"
+    },
+    {
+        "word": "BUT",
+        "clue": "Ochrona stopy, element odzieży"
+    },
+    {
+        "word": "CZAPKA",
+        "clue": "Nakrycie głowy"
+    },
+    {
+        "word": "KOSZULA",
+        "clue": "Element odzieży zakładany na górną część ciała"
+    },
+    {
+        "word": "SPODNIE",
+        "clue": "Element odzieży zakładany na nogi"
+    },
+    {
+        "word": "SUKIENKA",
+        "clue": "Element odzieży zakładany przez kobiety"
+    },
+    {
+        "word": "BLUZA",
+        "clue": "Element odzieży zakładany na górną część ciała"
+    },
+    {
+        "word": "KURTKA",
+        "clue": "Odzież wierzchnia chroniąca przed zimnem"
+    },
+    {
+        "word": "TORBA",
+        "clue": "Przedmiot do przenoszenia rzeczy osobistych"
+    },
+    {
+        "word": "PLECAK",
+        "clue": "Torba noszona na plecach"
+    },
+    {
+        "word": "OKULARY",
+        "clue": "Przedmiot służący do poprawy widzenia lub ochrony oczu"
+    },
+    {
+        "word": "TELEWIZOR",
+        "clue": "Urządzenie do odbioru programów telewizyjnych"
+    },
+    {
+        "word": "RADIO",
+        "clue": "Urządzenie odbierające fale radiowe"
+    },
+    {
+        "word": "GŁOŚNIK",
+        "clue": "Urządzenie emitujące dźwięk"
+    },
+    {
+        "word": "MEBEL",
+        "clue": "Przedmiot użytkowy w domu"
+    },
+    {
+        "word": "STOLIK",
+        "clue": "Mały stół używany w domu"
+    },
+    {
+        "word": "FOTEL",
+        "clue": "Wygodne siedzisko z oparciem"
+    },
+    {
+        "word": "KANAPA",
+        "clue": "Mebel do siedzenia dla kilku osób"
+    },
+    {
+        "word": "DYWAN",
+        "clue": "Pokrycie podłogi z tkaniny"
+    },
+    {
+        "word": "LUSTRO",
+        "clue": "Powierzchnia odbijająca obraz"
+    },
+    {
+        "word": "OBRAZ",
+        "clue": "Dzieło sztuki do zawieszania na ścianie"
+    },
+    {
+        "word": "ZEGAREK",
+        "clue": "Małe urządzenie do mierzenia czasu"
+    },
+    {
+        "word": "PEN",
+        "clue": "Przyrząd do pisania atramentem"
+    },
+    {
+        "word": "OŁÓWEK",
+        "clue": "Przyrząd do pisania lub rysowania grafitem"
+    },
+    {
+        "word": "DŁUGOPIS",
+        "clue": "Przyrząd do pisania tuszem"
+    },
+    {
+        "word": "MARKER",
+        "clue": "Przyrząd do oznaczania lub pisania"
+    },
+    {
+        "word": "BRULION",
+        "clue": "Zeszyt do notatek"
+    },
+    {
+        "word": "KALENDARZ",
+        "clue": "Narzędzie do organizowania dat i wydarzeń"
+    },
+    {
+        "word": "MOBILNY",
+        "clue": "Coś przenośnego, możliwego do noszenia"
+    },
+    {
+        "word": "TABLET",
+        "clue": "Przenośne urządzenie z ekranem dotykowym"
+    },
+    {
+        "word": "SMARTFON",
+        "clue": "Przenośne urządzenie komunikacyjne"
+    },
+    {
+        "word": "LAPTOP",
+        "clue": "Przenośny komputer"
+    },
+    {
+        "word": "MONITOR",
+        "clue": "Urządzenie wyświetlające obraz z komputera"
+    },
+    {
+        "word": "MYSZ",
+        "clue": "Urządzenie wskazujące po ekranie"
+    },
+    {
+        "word": "KLAWIATURA",
+        "clue": "Urządzenie do wprowadzania znaków do komputera"
+    },
+    {
+        "word": "SŁOŃ",
+        "clue": "Duże zwierzę z trąbą"
+    },
+    {
+        "word": "TYGRYS",
+        "clue": "Drapieżny ssak z pręgami"
+    },
+    {
+        "word": "LEW",
+        "clue": "Król dżungli"
+    },
+    {
+        "word": "ZEBRA",
+        "clue": "Ssaki afrykańskie w pasy"
+    },
+    {
+        "word": "ŻYRAFA",
+        "clue": "Wysokie zwierzę afrykańskie z długą szyją"
+    },
+    {
+        "word": "MAŁPA",
+        "clue": "Zwinny ssak nadrzewny"
+    },
+    {
+        "word": "SOWA",
+        "clue": "Ptak nocny polujący na małe zwierzęta"
+    },
+    {
+        "word": "WRÓBEL",
+        "clue": "Mały ptak często spotykany w mieście"
+    },
+    {
+        "word": "JASKÓŁKA",
+        "clue": "Ptak przylatujący wiosną do Europy"
+    },
+    {
+        "word": "RYBA",
+        "clue": "Ssaki wodne nie są, lecz zwierzęta wodne mają skrzela"
+    },
+    {
+        "word": "KROWA",
+        "clue": "Domowe zwierzę hodowlane produkujące mleko"
+    },
+    {
+        "word": "KOŃ",
+        "clue": "Duże zwierzę hodowlane, często jeżdżone przez ludzi"
+    },
+    {
+        "word": "OWCA",
+        "clue": "Domowe zwierzę hodowlane dające wełnę"
+    },
+    {
+        "word": "ŚWINIA",
+        "clue": "Domowe zwierzę hodowlane dające mięso"
+    },
+    {
+        "word": "KURA",
+        "clue": "Ptak hodowlany znoszący jaja"
+    },
+    {
+        "word": "JAJKO",
+        "clue": "Produkt spożywczy pochodzenia zwierzęcego"
+    },
+    {
+        "word": "CHLEB",
+        "clue": "Wypiek z mąki, wody i drożdży"
+    },
+    {
+        "word": "MAKARON",
+        "clue": "Produkt spożywczy z pszenicy, gotowany"
+    },
+    {
+        "word": "RYŻ",
+        "clue": "Ziarna rośliny uprawnej stosowane w kuchni"
+    },
+    {
+        "word": "MĄKA",
+        "clue": "Produkt otrzymywany z ziarna zmielonego"
+    },
+    {
+        "word": "CUKIER",
+        "clue": "Słodka substancja stosowana w kuchni"
+    },
+    {
+        "word": "SÓL",
+        "clue": "Substancja dodawana do potraw dla smaku"
+    },
+    {
+        "word": "PIERŚ",
+        "clue": "Mięso kurczaka lub indyka"
+    },
+    {
+        "word": "MIĘSO",
+        "clue": "Produkt pochodzenia zwierzęcego do jedzenia"
+    },
+    {
+        "word": "WODA",
+        "clue": "Nieprzezroczysta ciecz niezbędna do życia"
+    },
+    {
+        "word": "OLEJ",
+        "clue": "Tłuszcz roślinny lub zwierzęcy używany w kuchni"
+    },
+    {
+        "word": "MASŁO",
+        "clue": "Produkt mleczny do smarowania"
+    },
+    {
+        "word": "SER",
+        "clue": "Produkt mleczny"
+    },
+    {
+        "word": "JOGURT",
+        "clue": "Produkt mleczny fermentowany"
+    },
+    {
+        "word": "SOK",
+        "clue": "Napój uzyskany z owoców lub warzyw"
+    },
+    {
+        "word": "HERBATA",
+        "clue": "Napój przygotowywany przez zalanie suszu wodą"
+    },
+    {
+        "word": "KAWA",
+        "clue": "Napój pobudzający z ziaren kawowca"
+    },
+    {
+        "word": "PIWO",
+        "clue": "Alkoholowy napój zbożowy"
+    },
+    {
+        "word": "WINO",
+        "clue": "Napój alkoholowy z winogron"
+    }
+]
