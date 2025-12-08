@@ -6,6 +6,9 @@ from utils.data_manager import load_words, get_all_sets
 from utils.export_code_manager import encode_crossword
 from utils.qr_manager import generate_qr_image
 
+APP_BASE_URL = "https://systemyinformatycznedeploy-3crdjb98tkhzrmwgfuccaz.streamlit.app"
+
+# Znaki specjalne
 SPECIAL_CHARACTERS = {
     "Polski": "ĄĆĘŁŃÓŚŹŻ",
     "Niemiecki": "ÄÖÜß",
@@ -16,84 +19,102 @@ SPECIAL_CHARACTERS = {
 }
 
 
-def show_crossword_view():
-    st.title("🧩 Generator Krzyżówek")
-
-    available_sets = get_all_sets()
-    is_imported = st.session_state.get('last_set') == "Imported"
-
-    if not available_sets:
-        st.error("Brak zestawów słów! Wróć do menu i stwórz jakiś.")
-        if st.button("Wróć do Menu"):
-            st.session_state.current_view = 'main_menu'
-            st.rerun()
-        return
-
-    current_lang = st.session_state.get('crossword_language', 'Polski')
-
-    # Pobieramy znaki dla danego języka
-    chars_to_show = SPECIAL_CHARACTERS.get(current_lang, SPECIAL_CHARACTERS['Polski'])
-
-    target_set = st.session_state.get('active_set')
-    if not target_set or target_set not in available_sets:
-        target_set = st.session_state.get('last_set')
-
-    default_index = 0
-    if target_set and target_set in available_sets:
-        default_index = available_sets.index(target_set)
-
-    col_sel, col_empty = st.columns([3, 1])
-    with col_sel:
-        selected_set = st.selectbox(
-            "Z którego zestawu chcesz wygenerować krzyżówkę?",
-            available_sets,
-            index=default_index,
-            key="set_selector"
-        )
-    st.session_state.active_set = selected_set
-
-    col_gen, col_export, col_back = st.columns([3, 2, 1])
-    with col_gen:
-        target_count = st.slider("Ile słów wylosować?", min_value=3, max_value=20, value=10)
-        generate_clicked = st.button("🎲 Generuj Krzyżówkę", type="primary")
-    with col_back:
-        if st.button("⬅️ Menu"):
-            st.session_state.current_view = 'main_menu'
-            st.rerun()
-
-    if is_imported and not generate_clicked:
-        st.info("💡 To jest zaimportowana krzyżówka.")
-        should_generate = False
+# Dodajemy parametr student_mode=False
+def show_crossword_view(student_mode=False):
+    # Jeśli to uczeń, nie pokazujemy nagłówka "Generator"
+    if not student_mode:
+        st.title("🧩 Generator Krzyżówek")
     else:
-        should_generate = (
-                generate_clicked or
-                'crossword_data' not in st.session_state or
-                (st.session_state.get('last_set') != selected_set and not is_imported)
-        )
+        st.title("🎓 Rozwiąż Krzyżówkę")
 
-    if should_generate:
-        all_words = load_words(selected_set)
-        if len(all_words) < 2:
-            st.warning(f"Zestaw '{selected_set}' ma za mało słów.")
+    # ==================================================
+    # 1. LOGIKA ZARZĄDZANIA (TYLKO DLA NAUCZYCIELA)
+    # ==================================================
+    if not student_mode:
+        available_sets = get_all_sets()
+        is_imported = st.session_state.get('last_set') == "Imported"
+
+        if not available_sets:
+            st.error("Brak zestawów słów! Wróć do menu.")
             return
 
-        with st.spinner(f'Układam krzyżówkę...'):
-            import random
-            real_count = min(target_count, len(all_words))
-            selection = random.sample(all_words, real_count)
-            generator = CrosswordGenerator(selection)
-            grid, clues_across, clues_down = generator.generate()
+        target_set = st.session_state.get('active_set')
+        if not target_set or target_set not in available_sets:
+            target_set = st.session_state.get('last_set')
 
-            word_starts = {}
-            rows, cols = grid.shape
-            for r in range(rows):
-                for c in range(cols):
-                    cell = grid[r, c]
-                    if isinstance(cell, dict) and 'number' in cell:
-                        word_starts[(r, c)] = cell['number']
+        default_index = 0
+        if target_set and target_set in available_sets:
+            default_index = available_sets.index(target_set)
 
-            st.session_state.crossword_data = (grid, clues_across, clues_down, word_starts)
-            st.session_state.last_set = selected_set
+        # Panel sterowania nauczyciela
+        col_sel, col_empty = st.columns([3, 1])
+        with col_sel:
+            selected_set = st.selectbox(
+                "Zestaw:",
+                available_sets,
+                index=default_index,
+                key="set_selector"
+            )
+        st.session_state.active_set = selected_set
+
+        col_gen, col_export, col_back = st.columns([3, 2, 1])
+        with col_gen:
+            target_count = st.slider("Liczba słów:", 3, 20, 10)
+            generate_clicked = st.button("🎲 Generuj Nową", type="primary")
+        with col_back:
+            if st.button("⬅️ Menu"):
+                st.session_state.current_view = 'main_menu'
+                st.rerun()
+
+        # Logika generowania
+        if is_imported and not generate_clicked:
+            st.info("💡 To jest zaimportowana/wczytana krzyżówka.")
+            should_generate = False
+        else:
+            should_generate = (
+                    generate_clicked or
+                    'crossword_data' not in st.session_state or
+                    (st.session_state.get('last_set') != selected_set and not is_imported)
+            )
+
+        # 2. GENEROWANIE (Tylko Nauczyciel)
+        if should_generate:
+            all_words = load_words(selected_set)
+            if len(all_words) < 2:
+                st.warning(f"Zestaw '{selected_set}' ma za mało słów.")
+                return
+
+            with st.spinner(f'Układam krzyżówkę...'):
+                import random
+                real_count = min(target_count, len(all_words))
+                selection = random.sample(all_words, real_count)
+                generator = CrosswordGenerator(selection)
+                grid, clues_across, clues_down = generator.generate()
+
+                word_starts = {}
+                rows, cols = grid.shape
+                for r in range(rows):
+                    for c in range(cols):
+                        cell = grid[r, c]
+                        if isinstance(cell, dict) and 'number' in cell:
+                            word_starts[(r, c)] = cell['number']
+
+                st.session_state.crossword_data = (grid, clues_across, clues_down, word_starts)
+                st.session_state.last_set = selected_set
+
+    else:
+        # LOGIKA DLA UCZNIA (Brak generowania, tylko odczyt)
+        if 'crossword_data' not in st.session_state:
+            st.error("Brak danych krzyżówki. Zeskanuj kod ponownie.")
+            return
+
+    # ==================================================
+    # 3. RENDEROWANIE (WSPÓLNE DLA OBU)
+    # ==================================================
+
+    # Pobieranie języka (dla klawiatury)
+    current_lang = st.session_state.get('crossword_language', 'Polski')
+    chars_to_show = SPECIAL_CHARACTERS.get(current_lang, SPECIAL_CHARACTERS['Polski'])
 
     if 'crossword_data' in st.session_state:
         grid, clues_across, clues_down, word_starts = st.session_state.crossword_data
@@ -397,20 +418,33 @@ def show_crossword_view():
         iframe_height = (ROWS * 37) + 60
         components.html(full_html, height=iframe_height, scrolling=True)
 
-        with col_export:
-            with st.popover("Eksportuj Krzyżówkę", use_container_width=True):
-                st.subheader("Udostępnij")
-                export_code = encode_crossword(st.session_state.crossword_data)
-                tab1, tab2 = st.tabs(["Kod Tekstowy", "Kod QR"])
+        if not student_mode:
+            # W tym miejscu wstawiamy zmieniony kod QR z LINKIEM
 
-                with tab1:
-                    st.info("Zeskanuj telefonem, aby otworzyć.")
-                    qr_img = generate_qr_image(export_code)
-                    st.image(qr_img, caption="Kod QR Krzyżówki", use_container_width=True)
-                with tab2:
-                    st.info("Skopiuj kod, aby zapisać ten układ.")
-                    st.code(export_code, language='text')
+            with col_export:
+                with st.popover("📤 Udostępnij Uczniom", use_container_width=True):
+                    st.subheader("Kod dla Ucznia")
 
+                    # 1. Pobieramy "surowe" dane
+                    raw_code = encode_crossword(st.session_state.crossword_data)
+
+                    # 2. Tworzymy PEŁNY LINK
+                    # Jeśli nie zmieniłeś APP_BASE_URL na górze, kod QR nie zadziała poprawnie!
+                    full_link = f"{APP_BASE_URL}/?data={raw_code}"
+
+                    st.success("Zeskanuj ten kod telefonem, aby otworzyć krzyżówkę!")
+
+                    # Generowanie QR z linkiem
+                    qr_img = generate_qr_image(full_link)
+                    st.image(qr_img, use_container_width=True)
+
+                    st.markdown("---")
+                    st.caption("Lub skopiuj link bezpośredni:")
+                    st.code(full_link, language="text")
+
+            # ==================================================
+            # 5. DEFINICJE (WSPÓLNE)
+            # ==================================================
         st.markdown("---")
         c1, c2 = st.columns(2)
         with c1:
