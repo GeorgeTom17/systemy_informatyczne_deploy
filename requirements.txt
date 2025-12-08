@@ -1,0 +1,7 @@
+streamlit
+pandas
+numpy
+requests
+deep-translator
+qrcode[pil]
+opencv-python-headless
