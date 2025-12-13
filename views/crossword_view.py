@@ -5,6 +5,10 @@ from utils.crossword_generator import CrosswordGenerator
 from utils.data_manager import load_words, get_all_sets
 from utils.export_code_manager import encode_crossword
 from utils.qr_manager import generate_qr_image
+from utils.session_manager import save_session
+import urllib.parse
+from utils.results_manager import save_result
+
 
 #NIE RUSZAĆ !!!!! JAK KTOŚ TEN LINK ZMIENI TO WIDZIMY SIĘ ZA GARAŻAMI
 APP_BASE_URL = "https://systemyinformatycznedeploy-3crdjb98tkhzrmwgfuccaz.streamlit.app"
@@ -19,12 +23,18 @@ SPECIAL_CHARACTERS = {
 }
 
 
-def show_crossword_view(student_mode=False):
+def show_crossword_view(student_mode=False, session_name=None, student_name=None):
     if not student_mode:
-        st.title("Generator Krzyżówek")
+        st.title("🧩 Generator Krzyżówek")
     else:
-        st.title("Rozwiąż Krzyżówkę")
+        display_name = session_name if session_name else "Zadanie"
+        user_display = student_name if student_name else "Uczniu"
+        st.title(f"{display_name}")
+        st.caption(f"Powodzenia, **{user_display}**! Czas start!")
 
+    # ==================================================
+    # 1. LOGIKA ZARZĄDZANIA (TYLKO DLA NAUCZYCIELA)
+    # ==================================================
     if not student_mode:
         available_sets = get_all_sets()
         is_imported = st.session_state.get('last_set') == "Imported"
@@ -54,9 +64,9 @@ def show_crossword_view(student_mode=False):
         col_gen, col_export, col_back = st.columns([3, 2, 1])
         with col_gen:
             target_count = st.slider("Liczba słów:", 3, 20, 10)
-            generate_clicked = st.button("🎲 Generuj Nową", type="primary")
+            generate_clicked = st.button("Generuj Nową", type="primary")
         with col_back:
-            if st.button("⬅️ Menu"):
+            if st.button("Menu"):
                 st.session_state.current_view = 'main_menu'
                 st.rerun()
 
@@ -99,6 +109,37 @@ def show_crossword_view(student_mode=False):
             st.error("Brak danych krzyżówki. Zeskanuj kod ponownie.")
             return
 
+    if student_mode:
+        st.markdown("---")
+        st.subheader("Rozwiązane?")
+
+        if st.session_state.get('result_submitted'):
+            st.success("Twój wynik został wysłany do nauczyciela! Możesz zamknąć stronę.")
+        else:
+            st.info("Gdy krzyżówka wyświetli komunikat o wygranej, wpisz swój czas poniżej:")
+
+            with st.form("submit_result_form"):
+                c_time, c_btn = st.columns([2, 1])
+                with c_time:
+                    final_time = st.text_input("Twój czas (mm:ss):", placeholder="np. 02:45")
+                with c_btn:
+                    st.write("")
+                    st.write("")
+                    submitted = st.form_submit_button("Wyślij do Nauczyciela", type="primary")
+
+                if submitted:
+                    if not final_time:
+                        st.error("Wpisz czas!")
+                    else:
+                        save_result(session_name, student_name, final_time)
+
+                        st.session_state.result_submitted = True
+                        st.rerun()
+
+    # ==================================================
+    # 3. RENDEROWANIE
+    # ==================================================
+
     current_lang = st.session_state.get('crossword_language', 'Polski')
     chars_to_show = SPECIAL_CHARACTERS.get(current_lang, SPECIAL_CHARACTERS['Polski'])
 
@@ -134,14 +175,6 @@ def show_crossword_view(student_mode=False):
         sorted_words_for_js = downs + acrosses
         json_words = json.dumps(sorted_words_for_js)
 
-        keyboard_html = ""
-        if chars_to_show:
-            keyboard_html += '<div class="keyboard-panel">'
-            keyboard_html += f'<div class="kb-header">Znaki ({current_lang})</div>'
-            for char in chars_to_show:
-                keyboard_html += f'<button class="kb-btn" onclick="typeChar(\'{char}\')">{char}</button>'
-            keyboard_html += '</div>'
-
         grid_html = ""
         for r in range(ROWS):
             for c in range(COLS):
@@ -169,6 +202,7 @@ def show_crossword_view(student_mode=False):
                 --cell-size: 35px;
                 --font-size: 20px;
                 --gap-size: 2px;
+                --btn-color: #28a745;
             }}
 
             @media (max-width: 600px) {{
@@ -189,22 +223,51 @@ def show_crossword_view(student_mode=False):
                 touch-action: manipulation;
             }}
 
+            .controls-bar {{
+                display: flex;
+                justify-content: center;
+                align-items: center;
+                gap: 15px;
+                margin-bottom: 10px;
+                padding: 5px;
+            }}
+
+            .timer-display {{
+                font-size: 18px;
+                font-weight: bold;
+                color: #333;
+                background: #f0f0f0;
+                padding: 5px 10px;
+                border-radius: 4px;
+                min-width: 60px;
+                text-align: center;
+                border: 1px solid #ccc;
+            }}
+
+            .check-btn {{
+                background-color: var(--btn-color);
+                color: white;
+                border: none;
+                padding: 8px 16px;
+                font-size: 16px;
+                border-radius: 4px;
+                cursor: pointer;
+                font-weight: bold;
+                transition: background-color 0.2s;
+            }}
+
+            .check-btn:hover {{ background-color: #218838; }}
+            .check-btn:active {{ transform: scale(0.98); }}
+
             .scroll-wrapper {{
                 width: 100%;
                 overflow-x: auto;
                 display: flex;
-                justify-content: center;
-                justify-items: center;
+                justify-content: safe center;
                 padding-bottom: 20px;
-
-                justify-content: safe center; 
             }}
-
             @supports not (justify-content: safe center) {{
-                .scroll-wrapper {{
-                    display: block;
-                    text-align: center;
-                }}
+                .scroll-wrapper {{ display: block; text-align: center; }}
             }}
 
             .main-container {{
@@ -262,6 +325,11 @@ def show_crossword_view(student_mode=False):
         </style>
         </head>
         <body>
+            <div class="controls-bar">
+                <div class="timer-display" id="timer">00:00</div>
+                <button class="check-btn" onclick="checkAnswers()">Sprawdź</button>
+            </div>
+
             <div class="scroll-wrapper">
                 <div class="main-container">
                     <div class="crossword">
@@ -276,13 +344,62 @@ def show_crossword_view(student_mode=False):
                 let currentDirection = 'across';
                 let lastFocusedInput = null;
 
-                function validate(input) {{
-                    const val = input.value.toUpperCase();
-                    const correct = input.getAttribute("data-correct");
+                // --- STOPER ---
+                let startTime = Date.now();
+                let timerInterval;
+                let isSolved = false;
+
+                function updateTimer() {{
+                    if (isSolved) return;
+                    const now = Date.now();
+                    const diff = now - startTime;
+                    const seconds = Math.floor((diff / 1000) % 60);
+                    const minutes = Math.floor((diff / (1000 * 60)));
+
+                    const fmtSec = seconds < 10 ? "0" + seconds : seconds;
+                    const fmtMin = minutes < 10 ? "0" + minutes : minutes;
+
+                    document.getElementById("timer").innerText = fmtMin + ":" + fmtSec;
+                }}
+
+                timerInterval = setInterval(updateTimer, 1000);
+
+                function checkAnswers() {{
+                    if (isSolved) return;
+
+                    const inputs = document.querySelectorAll('input');
+                    let errors = 0;
+                    let empty = 0;
+
+                    inputs.forEach(input => {{
+                        const val = input.value.toUpperCase();
+                        const correct = input.getAttribute("data-correct");
+
+                        input.classList.remove("valid", "invalid");
+
+                        if (val.length === 0) {{
+                            empty++;
+                        }} else if (val === correct) {{
+                            input.classList.add("valid");
+                        }} else {{
+                            input.classList.add("invalid");
+                            errors++;
+                        }}
+                    }});
+
+                    if (errors === 0 && empty === 0) {{
+                        isSolved = true;
+                        clearInterval(timerInterval);
+                        const finalTime = document.getElementById("timer").innerText;
+
+                        alert("Gratulacje! Rozwiązano w czasie: " + finalTime);
+
+                        inputs.forEach(i => i.disabled = true);
+                    }}
+                }}
+
+                function clearValidation(input) {{
                     input.classList.remove("valid", "invalid");
-                    if (val.length === 0) return;
-                    if (val === correct) input.classList.add("valid");
-                    else input.classList.add("invalid");
                 }}
 
                 function updateTooltip(input) {{
@@ -359,7 +476,8 @@ def show_crossword_view(student_mode=False):
 
                 function handleInput(e) {{
                     const input = e.target;
-                    validate(input);
+
+                    clearValidation(input);
 
                     if (input.value.length === 1) {{
                         let r = parseInt(input.getAttribute('data-row'));
@@ -399,7 +517,7 @@ def show_crossword_view(student_mode=False):
                 }});
 
                 document.body.addEventListener('click', function(e) {{
-                    if (e.target.tagName !== 'INPUT') {{
+                    if (e.target.tagName !== 'INPUT' && e.target.className !== 'check-btn') {{
                          document.querySelectorAll('.tooltip.force-visible').forEach(el => {{ el.classList.remove('force-visible'); }});
                     }}
                 }});
@@ -408,35 +526,42 @@ def show_crossword_view(student_mode=False):
         </html>
         """
 
-        iframe_height = (ROWS * 35) + 60
+        iframe_height = (ROWS * 37) + 120
         components.html(full_html, height=iframe_height, scrolling=True)
 
+        # ==================================================
+        # 4. EKSPORT (TYLKO DLA NAUCZYCIELA)
+        # ==================================================
         if not student_mode:
-
             with col_export:
-                with st.popover("Udostępnij Uczniom", use_container_width=True):
-                    st.subheader("Kod dla Ucznia")
+                with st.popover("Udostępnij / Zapisz Sesję", use_container_width=True):
+                    st.subheader("Utwórz sesję dla uczniów")
 
-                    raw_code = encode_crossword(st.session_state.crossword_data)
+                    new_session_name = st.text_input("Nazwa sesji (np. Klasa 4B):", placeholder="Wpisz nazwę...")
 
-                    full_link = f"{APP_BASE_URL}/?data={raw_code}"
+                    if st.button("Zapisz Sesję i Pokaż QR", type="primary"):
+                        if not new_session_name:
+                            st.error("Podaj nazwę sesji!")
+                        else:
+                            raw_code = encode_crossword(st.session_state.crossword_data)
 
-                    st.success("Zeskanuj ten kod telefonem, aby otworzyć krzyżówkę!")
+                            save_session(new_session_name, st.session_state.crossword_data, raw_code)
+                            st.success(f"Zapisano sesję: {new_session_name}")
 
-                    qr_img = generate_qr_image(full_link)
-                    st.image(qr_img, use_container_width=True)
+                            safe_name = urllib.parse.quote(new_session_name)
+                            full_link = f"{APP_BASE_URL}/?data={raw_code}&name={safe_name}"
 
-                    st.markdown("---")
-                    st.caption("Lub skopiuj link bezpośredni:")
-                    st.code(full_link, language="text")
+                            st.image(generate_qr_image(full_link), use_container_width=True)
+                            st.caption("Link bezpośredni:")
+                            st.code(full_link, language="text")
 
-        st.markdown("---")
-        c1, c2 = st.columns(2)
-        with c1:
-            st.subheader("POZIOMO")
-            if clues_across:
-                for x in clues_across: st.text(x)
-        with c2:
-            st.subheader("PIONOWO")
-            if clues_down:
-                for x in clues_down: st.text(x)
+    st.markdown("---")
+    c1, c2 = st.columns(2)
+    with c1:
+        st.subheader("POZIOMO")
+        if clues_across:
+            for x in clues_across: st.text(x)
+    with c2:
+        st.subheader("PIONOWO")
+        if clues_down:
+            for x in clues_down: st.text(x)
