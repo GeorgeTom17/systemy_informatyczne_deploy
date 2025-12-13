@@ -37,7 +37,7 @@ if 'current_view' not in st.session_state:
 if st.session_state.current_view == 'student_mode' and 'student_name' not in st.session_state:
 
     st.title("Witaj w Krzyżówce!")
-    st.info(f"Sesja: {st.session_state.get('student_session_name', 'Zadanie')}")
+    st.info(f"Sesja: {st.session_state.get('session_name', 'Zadanie')}")
 
     with st.form("student_login"):
         name_input = st.text_input("Podaj swoje imię lub nick:")
@@ -49,7 +49,7 @@ if st.session_state.current_view == 'student_mode' and 'student_name' not in st.
                 st.error("Musisz podać imię!")
 
 elif st.session_state.current_view == 'student_mode':
-    session_name = st.session_state.get('student_session_name', 'Krzyżówka')
+    session_name = st.session_state.get('session_name', 'Krzyżówka')
     student_name = st.session_state.get('student_name', 'Uczeń')
 
     show_crossword_view(student_mode=True, session_name=session_name, student_name=student_name)
