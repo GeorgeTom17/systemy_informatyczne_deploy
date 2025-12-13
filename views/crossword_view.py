@@ -162,8 +162,30 @@ def show_crossword_view(student_mode=False, session_name=None, student_name=None
                 words_in_puzzle = []
                 if 'crossword_data' in st.session_state:
                     grid = st.session_state.crossword_data[0]
-                    for item in selection:
-                        words_in_puzzle.append(item['word'])
+                    rows, cols = grid.shape
+                    temp_words = set()
+                    for r in range(rows):
+                        current = ""
+                        for c in range(cols):
+                            cell = grid[r, c]
+                            if isinstance(cell, str):
+                                current += cell
+                            else:
+                                if len(current) > 1: temp_words.add(current)
+                                current = ""
+                        if len(current) > 1: temp_words.add(current)
+                    for c in range(cols):
+                        current = ""
+                        for r in range(rows):
+                            cell = grid[r, c]
+                            if isinstance(cell, str):
+                                current += cell
+                            else:
+                                if len(current) > 1: temp_words.add(current)
+                                current = ""
+                        if len(current) > 1: temp_words.add(current)
+
+                    words_in_puzzle = sorted(list(temp_words))
 
                 with st.form("learning_feedback"):
                     hard_words = st.multiselect(
