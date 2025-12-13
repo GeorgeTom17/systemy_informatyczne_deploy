@@ -5,3 +5,7 @@ requests
 deep-translator
 qrcode[pil]
 opencv-python-headless
+scikit-learn
+joblib
+gspread
+oauth2client

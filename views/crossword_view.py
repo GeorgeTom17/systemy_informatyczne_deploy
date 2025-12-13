@@ -8,7 +8,8 @@ from utils.qr_manager import generate_qr_image
 from utils.session_manager import save_session
 import urllib.parse
 from utils.results_manager import save_result
-
+from utils.ml_engine import ai_engine
+from utils.db_manager import save_student_feedback
 
 #NIE RUSZAĆ !!!!! JAK KTOŚ TEN LINK ZMIENI TO WIDZIMY SIĘ ZA GARAŻAMI
 APP_BASE_URL = "https://systemyinformatycznedeploy-3crdjb98tkhzrmwgfuccaz.streamlit.app"
@@ -63,7 +64,7 @@ def show_crossword_view(student_mode=False, session_name=None, student_name=None
 
         col_gen, col_export, col_back = st.columns([3, 2, 1])
         with col_gen:
-            target_count = st.slider("Liczba słów:", 3, 20, 10)
+            target_count = st.slider("Liczba słów:", 3, 40, 10)
             generate_clicked = st.button("Generuj Nową", type="primary")
         with col_back:
             if st.button("Menu"):
@@ -104,6 +105,20 @@ def show_crossword_view(student_mode=False, session_name=None, student_name=None
                 st.session_state.crossword_data = (grid, clues_across, clues_down, word_starts)
                 st.session_state.last_set = selected_set
 
+            current_lang_for_ml = st.session_state.get('crossword_language', 'Polski')
+
+            difficulty_report = {"ŁATWE": 0, "ŚREDNIE": 0, "TRUDNE": 0}
+
+            for item in selection:
+                word = item['word']
+                clue = item['clue']
+
+                pred, _, _ = ai_engine.predict(word, clue, current_lang_for_ml)
+
+                difficulty_report[pred] += 1
+
+            st.session_state.difficulty_stats = difficulty_report
+
     else:
         if 'crossword_data' not in st.session_state:
             st.error("Brak danych krzyżówki. Zeskanuj kod ponownie.")
@@ -132,9 +147,41 @@ def show_crossword_view(student_mode=False, session_name=None, student_name=None
                         st.error("Wpisz czas!")
                     else:
                         save_result(session_name, student_name, final_time)
-
                         st.session_state.result_submitted = True
                         st.rerun()
+
+                if st.session_state.get('result_submitted') and not st.session_state.get('feedback_sent'):
+                    st.success("Wynik wysłany! Gratulacje!")
+                    st.markdown("---")
+                    st.subheader("Pomóż nam ulepszyć grę!")
+                    st.write("Zaznacz słowa, które sprawiły Ci największą trudność (lub których nie znałeś):")
+                    words_to_rate = []
+                    for item in selection:
+                        words_to_rate.append(item['word'])
+                    with st.form("learning_feedback"):
+                        words_in_puzzle = words_to_rate
+
+                        hard_words = st.multiselect(
+                            "Trudne słowa:",
+                            options=words_in_puzzle
+                        )
+
+                        if st.form_submit_button("Wyślij opinię"):
+                            feedback_data = []
+                            current_lang = st.session_state.get('crossword_language', 'Polski')
+
+                            for w in hard_words:
+                                feedback_data.append((w, "Feedback ucznia", current_lang, "TRUDNE"))
+
+                            easy_words = set(words_in_puzzle) - set(hard_words)
+                            for w in easy_words:
+                                feedback_data.append((w, "Feedback ucznia", current_lang, "ŁATWE"))
+
+                            save_student_feedback(feedback_data)
+
+                            st.session_state.feedback_sent = True
+                            st.balloons()
+                            st.success("Dziękujemy! Dzięki Tobie gra będzie mądrzejsza.")
 
     # ==================================================
     # 3. RENDEROWANIE
@@ -192,6 +239,7 @@ def show_crossword_view(student_mode=False, session_name=None, student_name=None
                     p_down = parents.get('down', '')
                     grid_html += f'<div class="cell input-cell"><input type="text" maxlength="1" id="input-{r}-{c}" data-row="{r}" data-col="{c}" data-correct="{correct_letter}" data-parent-across="{p_across}" data-parent-down="{p_down}"></div>'
 
+        cell_size = (700 / ROWS) * 1.2
         full_html = f"""
         <!DOCTYPE html>
         <html>
@@ -199,7 +247,7 @@ def show_crossword_view(student_mode=False, session_name=None, student_name=None
         <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
         <style>
             :root {{
-                --cell-size: 35px;
+                --cell-size: {cell_size}px;
                 --font-size: 20px;
                 --gap-size: 2px;
                 --btn-color: #28a745;
@@ -554,6 +602,20 @@ def show_crossword_view(student_mode=False, session_name=None, student_name=None
                             st.image(generate_qr_image(full_link), use_container_width=True)
                             st.caption("Link bezpośredni:")
                             st.code(full_link, language="text")
+
+                if not student_mode and 'difficulty_stats' in st.session_state:
+                    st.subheader("Analiza Trudności (wg Twojego AI)")
+                    stats = st.session_state.difficulty_stats
+
+                    k1, k2, k3 = st.columns(3)
+                    k1.metric("Łatwe", stats["ŁATWE"])
+                    k2.metric("Średnie", stats["ŚREDNIE"])
+                    k3.metric("Trudne", stats["TRUDNE"])
+
+                    if stats["TRUDNE"] > stats["ŁATWE"]:
+                        st.warning("Uwaga! Twoje AI uważa, że ta krzyżówka może być trudna dla uczniów.")
+                    else:
+                        st.success("Poziom trudności wydaje się odpowiedni.")
 
     st.markdown("---")
     c1, c2 = st.columns(2)

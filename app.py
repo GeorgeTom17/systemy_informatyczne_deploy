@@ -5,6 +5,7 @@ from views.main_menu import show_main_menu, open_random_generator_window
 from views.crossword_view import show_crossword_view
 from views.sessions_view import show_sessions_view
 from utils.export_code_manager import decode_crossword
+from views.ml_view import show_ml_view
 
 st.set_page_config(page_title="krzyżGŁówkuj", layout="wide", page_icon="🧩")
 
@@ -74,6 +75,10 @@ else:
 
         if st.button("Sesje", use_container_width=True):
             st.session_state.current_view = 'sessions'
+        st.markdown("---")
+
+        if st.button("Trening AI", use_container_width=True):
+            st.session_state.current_view = 'ml_training'
 
         st.markdown("---")
         if st.button("Statystyki", use_container_width=True):
@@ -88,3 +93,5 @@ else:
             show_sessions_view()
         elif st.session_state.current_view == 'stats':
             st.header("Statystyki")
+        elif st.session_state.current_view == 'ml_training':
+            show_ml_view()
