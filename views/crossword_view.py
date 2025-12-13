@@ -128,10 +128,11 @@ def show_crossword_view(student_mode=False, session_name=None, student_name=None
         st.markdown("---")
         st.subheader("Rozwiązane?")
 
-        if st.session_state.get('result_submitted'):
-            st.success("Twój wynik został wysłany do nauczyciela! Możesz zamknąć stronę.")
-        else:
-            st.info("Gdy krzyżówka wyświetli komunikat o wygranej, wpisz swój czas poniżej:")
+        is_submitted = st.session_state.get('result_submitted', False)
+        is_feedback_sent = st.session_state.get('feedback_sent', False)
+
+        if not is_submitted:
+            st.info("Gdy krzyżówka wyświetli komunikat o wygranej, wpisz swój czas ze stopera:")
 
             with st.form("submit_result_form"):
                 c_time, c_btn = st.columns([2, 1])
@@ -150,38 +151,45 @@ def show_crossword_view(student_mode=False, session_name=None, student_name=None
                         st.session_state.result_submitted = True
                         st.rerun()
 
-                if st.session_state.get('result_submitted') and not st.session_state.get('feedback_sent'):
-                    st.success("Wynik wysłany! Gratulacje!")
-                    st.markdown("---")
-                    st.subheader("Pomóż nam ulepszyć grę!")
-                    st.write("Zaznacz słowa, które sprawiły Ci największą trudność (lub których nie znałeś):")
-                    words_to_rate = []
+        else:
+            st.success("Twój wynik został wysłany do nauczyciela! Możesz zamknąć stronę.")
+
+            if not is_feedback_sent:
+                st.markdown("---")
+                st.subheader("Pomóż nam ulepszyć grę!")
+                st.write("Zaznacz słowa, które sprawiły Ci największą trudność:")
+
+                words_in_puzzle = []
+                if 'crossword_data' in st.session_state:
+                    grid = st.session_state.crossword_data[0]
                     for item in selection:
-                        words_to_rate.append(item['word'])
-                    with st.form("learning_feedback"):
-                        words_in_puzzle = words_to_rate
+                        words_in_puzzle.append(item['word'])
 
-                        hard_words = st.multiselect(
-                            "Trudne słowa:",
-                            options=words_in_puzzle
-                        )
+                with st.form("learning_feedback"):
+                    hard_words = st.multiselect(
+                        "Wybierz trudne słowa:",
+                        options=words_in_puzzle
+                    )
 
-                        if st.form_submit_button("Wyślij opinię"):
-                            feedback_data = []
-                            current_lang = st.session_state.get('crossword_language', 'Polski')
+                    if st.form_submit_button("Wyślij opinię"):
+                        feedback_data = []
+                        current_lang = st.session_state.get('crossword_language', 'Polski')
 
-                            for w in hard_words:
-                                feedback_data.append((w, "Feedback ucznia", current_lang, "TRUDNE"))
+                        for w in hard_words:
+                            feedback_data.append((w, "User Feedback", current_lang, "TRUDNE"))
 
-                            easy_words = set(words_in_puzzle) - set(hard_words)
-                            for w in easy_words:
-                                feedback_data.append((w, "Feedback ucznia", current_lang, "ŁATWE"))
+                        easy_words = set(words_in_puzzle) - set(hard_words)
+                        for w in easy_words:
+                            feedback_data.append((w, "User Feedback", current_lang, "ŁATWE"))
 
-                            save_student_feedback(feedback_data)
+                        save_student_feedback(feedback_data)
 
-                            st.session_state.feedback_sent = True
-                            st.balloons()
-                            st.success("Dziękujemy! Dzięki Tobie gra będzie mądrzejsza.")
+                        st.session_state.feedback_sent = True
+                        st.balloons()
+                        st.rerun()
+
+            else:
+                st.info("Dziękujemy za przesłanie opinii! 🙏")
 
     # ==================================================
     # 3. RENDEROWANIE
