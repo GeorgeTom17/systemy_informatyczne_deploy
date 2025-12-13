@@ -19,9 +19,9 @@ if incoming_data:
             st.session_state.current_view = 'student_mode'
 
             if incoming_name:
-                st.session_state.student_session_name = incoming_name
+                st.session_state.session_name = incoming_name
             else:
-                st.session_state.student_session_name = "Zadanie Domowe"
+                st.session_state.session_name = "Zadanie Domowe"
 
             if 'student_name' in st.session_state:
                 del st.session_state['student_name']
