@@ -271,338 +271,350 @@ def show_crossword_view(student_mode=False, session_name=None, student_name=None
 
         cell_size = (700 / ROWS) * 1.2
         full_html = f"""
-        <!DOCTYPE html>
-        <html>
-        <head>
-        <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-        <style>
-            :root {{
-                --cell-size: {cell_size}px;
-                --font-size: 20px;
-                --gap-size: 2px;
-                --btn-color: #28a745;
-            }}
+                <!DOCTYPE html>
+                <html>
+                <head>
+                <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+                <style>
+                    :root {{
+                        --cell-size: 35px;
+                        --font-size: 20px;
+                        --gap-size: 2px;
+                        --btn-check: #28a745;
+                        --btn-hint: #ffc107;
+                        --hint-text-color: #6f42c1;
+                    }}
 
-            @media (max-width: 600px) {{
-                :root {{
-                    --cell-size: 26px;
-                    --font-size: 14px;
-                    --gap-size: 1px;
-                }}
-            }}
+                    @media (max-width: 600px) {{
+                        :root {{
+                            --cell-size: 26px;
+                            --font-size: 14px;
+                            --gap-size: 1px;
+                        }}
+                    }}
 
-            body {{
-                font-family: sans-serif;
-                background-color: transparent;
-                margin: 0;
-                padding: 0;
-                width: 100%;
-                box-sizing: border-box;
-                touch-action: manipulation;
-            }}
+                    body {{
+                        font-family: sans-serif;
+                        background-color: transparent;
+                        margin: 0; padding: 0; width: 100%; box-sizing: border-box;
+                        touch-action: manipulation;
+                    }}
 
-            .controls-bar {{
-                display: flex;
-                justify-content: center;
-                align-items: center;
-                gap: 15px;
-                margin-bottom: 10px;
-                padding: 5px;
-            }}
+                    .controls-bar {{
+                        display: flex; justify-content: center; align-items: center;
+                        gap: 10px; margin-bottom: 10px; padding: 5px; flex-wrap: wrap;
+                    }}
 
-            .timer-display {{
-                font-size: 18px;
-                font-weight: bold;
-                color: #333;
-                background: #f0f0f0;
-                padding: 5px 10px;
-                border-radius: 4px;
-                min-width: 60px;
-                text-align: center;
-                border: 1px solid #ccc;
-            }}
+                    .timer-display {{
+                        font-size: 18px; font-weight: bold; color: #333;
+                        background: #f0f0f0; padding: 5px 10px; border-radius: 4px;
+                        min-width: 60px; text-align: center; border: 1px solid #ccc;
+                    }}
 
-            .check-btn {{
-                background-color: var(--btn-color);
-                color: white;
-                border: none;
-                padding: 8px 16px;
-                font-size: 16px;
-                border-radius: 4px;
-                cursor: pointer;
-                font-weight: bold;
-                transition: background-color 0.2s;
-            }}
+                    .btn {{
+                        border: none; padding: 8px 12px; font-size: 16px;
+                        border-radius: 4px; cursor: pointer; font-weight: bold;
+                        color: white; transition: filter 0.2s;
+                    }}
+                    .btn:active {{ transform: scale(0.98); }}
 
-            .check-btn:hover {{ background-color: #218838; }}
-            .check-btn:active {{ transform: scale(0.98); }}
+                    .check-btn {{ background-color: var(--btn-check); }}
+                    .check-btn:hover {{ filter: brightness(0.9); }}
 
-            .scroll-wrapper {{
-                width: 100%;
-                overflow-x: auto;
-                display: flex;
-                justify-content: safe center;
-                padding-bottom: 20px;
-            }}
-            @supports not (justify-content: safe center) {{
-                .scroll-wrapper {{ display: block; text-align: center; }}
-            }}
+                    .hint-btn {{ 
+                        background-color: var(--btn-hint); 
+                        color: #000;
+                    }}
+                    .hint-btn:hover {{ filter: brightness(0.9); }}
 
-            .main-container {{
-                display: inline-block;
-                padding: 0 10px;
-            }}
+                    .hint-counter {{
+                        font-size: 12px; color: #555; margin-left: 5px;
+                    }}
 
-            .crossword {{
-                display: grid;
-                grid-template-columns: repeat({COLS}, var(--cell-size));
-                grid-template-rows: repeat({ROWS}, var(--cell-size));
-                gap: var(--gap-size);
-                background: #222;
-                padding: 4px;
-                border-radius: 4px;
-                box-shadow: 0 2px 6px rgba(0,0,0,0.2);
-                margin: 0 auto;
-            }}
+                    .scroll-wrapper {{
+                        width: 100%; overflow-x: auto; display: flex;
+                        justify-content: safe center; padding-bottom: 20px;
+                    }}
+                    @supports not (justify-content: safe center) {{ .scroll-wrapper {{ display: block; text-align: center; }} }}
 
-            .cell {{ width: var(--cell-size); height: var(--cell-size); position: relative; box-sizing: border-box; }}
-            .block {{ background: #000; }}
+                    .main-container {{ display: inline-block; padding: 0 10px; }}
 
-            .number-cell {{
-                background-color: #FF8C00; color: white; font-weight: bold;
-                display: flex; justify-content: center; align-items: center;
-                font-size: calc(var(--cell-size) * 0.5);
-                cursor: help; position: relative;
-            }}
+                    .crossword {{
+                        display: grid;
+                        grid-template-columns: repeat({COLS}, var(--cell-size));
+                        grid-template-rows: repeat({ROWS}, var(--cell-size));
+                        gap: var(--gap-size);
+                        background: #222; padding: 4px; border-radius: 4px;
+                        box-shadow: 0 2px 6px rgba(0,0,0,0.2); margin: 0 auto;
+                    }}
 
-            .tooltip {{
-                visibility: hidden; opacity: 0; background-color: #333; color: #fff;
-                text-align: center; padding: 8px; border-radius: 5px;
-                position: absolute; bottom: 120%; left: 50%; transform: translateX(-50%);
-                z-index: 2000; width: max-content; max-width: 250px;
-                font-size: 14px; font-weight: normal; 
-                box-shadow: 0px 4px 10px rgba(0,0,0,0.4);
-                transition: opacity 0.2s; pointer-events: none; white-space: normal;
-            }}
-            .tooltip::after {{
-                content: ""; position: absolute; top: 100%; left: 50%; margin-left: -5px;
-                border-width: 5px; border-style: solid; border-color: #333 transparent transparent transparent;
-            }}
-            .number-cell:hover .tooltip, .tooltip.force-visible {{ visibility: visible; opacity: 1; }}
+                    .cell {{ width: var(--cell-size); height: var(--cell-size); position: relative; box-sizing: border-box; }}
+                    .block {{ background: #000; }}
 
-            .input-cell {{ background: #fff; }}
-            .input-cell input {{
-                width: 100%; height: 100%; padding: 0; margin: 0;
-                font-size: var(--font-size); color: black; text-align: center; border: none;
-                background: #fff; font-weight: bold; text-transform: uppercase; 
-                display: block; border-radius: 0; -webkit-appearance: none;
-            }}
-            .input-cell input:focus {{ outline: 2px solid #1e90ff; background-color: #e8f0fe; }}
-            .input-cell input.valid {{ background-color: #d4edda; color: #155724; }}
-            .input-cell input.invalid {{ background-color: #f8d7da; color: #721c24; }}
-        </style>
-        </head>
-        <body>
-            <div class="controls-bar">
-                <div class="timer-display" id="timer">00:00</div>
-                <button class="check-btn" onclick="checkAnswers()">Sprawdź</button>
-            </div>
+                    .number-cell {{
+                        background-color: #FF8C00; color: white; font-weight: bold;
+                        display: flex; justify-content: center; align-items: center;
+                        font-size: calc(var(--cell-size) * 0.5); cursor: help; position: relative;
+                    }}
 
-            <div class="scroll-wrapper">
-                <div class="main-container">
-                    <div class="crossword">
-                        {grid_html}
+                    .tooltip {{
+                        visibility: hidden; opacity: 0; background-color: #333; color: #fff;
+                        text-align: center; padding: 8px; border-radius: 5px;
+                        position: absolute; bottom: 120%; left: 50%; transform: translateX(-50%);
+                        z-index: 2000; width: max-content; max-width: 250px;
+                        font-size: 14px; font-weight: normal; 
+                        box-shadow: 0px 4px 10px rgba(0,0,0,0.4);
+                        transition: opacity 0.2s; pointer-events: none; white-space: normal;
+                    }}
+                    .tooltip::after {{
+                        content: ""; position: absolute; top: 100%; left: 50%; margin-left: -5px;
+                        border-width: 5px; border-style: solid; border-color: #333 transparent transparent transparent;
+                    }}
+                    .number-cell:hover .tooltip, .tooltip.force-visible {{ visibility: visible; opacity: 1; }}
+
+                    .input-cell {{ background: #fff; }}
+                    .input-cell input {{
+                        width: 100%; height: 100%; padding: 0; margin: 0;
+                        font-size: var(--font-size); color: black; text-align: center; border: none;
+                        background: #fff; font-weight: bold; text-transform: uppercase; 
+                        display: block; border-radius: 0; -webkit-appearance: none;
+                    }}
+                    .input-cell input:focus {{ outline: 2px solid #1e90ff; background-color: #e8f0fe; }}
+                    .input-cell input.valid {{ background-color: #d4edda; color: #155724; }}
+                    .input-cell input.invalid {{ background-color: #f8d7da; color: #721c24; }}
+
+                    .input-cell input.hint-used {{
+                        color: var(--hint-text-color);
+                        background-color: #fcf8e3; /* Lekko żółte tło */
+                    }}
+                </style>
+                </head>
+                <body>
+                    <div class="controls-bar">
+                        <div class="timer-display" id="timer">00:00</div>
+                        <button class="btn check-btn" onclick="checkAnswers()">Sprawdź</button>
+                        <button class="btn hint-btn" onclick="revealLetter()">💡 Podpowiedź</button>
+                        <span class="hint-counter" id="hint-count">Użyto: 0</span>
                     </div>
-                </div>
-            </div>
 
-            <script>
-                const wordOrder = {json_words};
+                    <div class="scroll-wrapper">
+                        <div class="main-container">
+                            <div class="crossword">
+                                {grid_html}
+                            </div>
+                        </div>
+                    </div>
 
-                let currentDirection = 'across';
-                let lastFocusedInput = null;
+                    <script>
+                        const wordOrder = {json_words};
 
-                // --- STOPER ---
-                let startTime = Date.now();
-                let timerInterval;
-                let isSolved = false;
+                        let currentDirection = 'across';
+                        let lastFocusedInput = null;
+                        let hintCount = 0;
 
-                function updateTimer() {{
-                    if (isSolved) return;
-                    const now = Date.now();
-                    const diff = now - startTime;
-                    const seconds = Math.floor((diff / 1000) % 60);
-                    const minutes = Math.floor((diff / (1000 * 60)));
+                        let startTime = Date.now();
+                        let timerInterval;
+                        let isSolved = false;
 
-                    const fmtSec = seconds < 10 ? "0" + seconds : seconds;
-                    const fmtMin = minutes < 10 ? "0" + minutes : minutes;
-
-                    document.getElementById("timer").innerText = fmtMin + ":" + fmtSec;
-                }}
-
-                timerInterval = setInterval(updateTimer, 1000);
-
-                function checkAnswers() {{
-                    if (isSolved) return;
-
-                    const inputs = document.querySelectorAll('input');
-                    let errors = 0;
-                    let empty = 0;
-
-                    inputs.forEach(input => {{
-                        const val = input.value.toUpperCase();
-                        const correct = input.getAttribute("data-correct");
-
-                        input.classList.remove("valid", "invalid");
-
-                        if (val.length === 0) {{
-                            empty++;
-                        }} else if (val === correct) {{
-                            input.classList.add("valid");
-                        }} else {{
-                            input.classList.add("invalid");
-                            errors++;
+                        function updateTimer() {{
+                            if (isSolved) return;
+                            const now = Date.now();
+                            const diff = now - startTime;
+                            const seconds = Math.floor((diff / 1000) % 60);
+                            const minutes = Math.floor((diff / (1000 * 60)));
+                            const fmtSec = seconds < 10 ? "0" + seconds : seconds;
+                            const fmtMin = minutes < 10 ? "0" + minutes : minutes;
+                            document.getElementById("timer").innerText = fmtMin + ":" + fmtSec;
                         }}
-                    }});
+                        timerInterval = setInterval(updateTimer, 1000);
 
-                    if (errors === 0 && empty === 0) {{
-                        isSolved = true;
-                        clearInterval(timerInterval);
-                        const finalTime = document.getElementById("timer").innerText;
+                        function revealLetter() {{
+                            if (isSolved) return;
 
-                        alert("Gratulacje! Rozwiązano w czasie: " + finalTime);
-
-                        inputs.forEach(i => i.disabled = true);
-                    }}
-                }}
-
-                function clearValidation(input) {{
-                    input.classList.remove("valid", "invalid");
-                }}
-
-                function updateTooltip(input) {{
-                    document.querySelectorAll('.tooltip.force-visible').forEach(el => {{
-                        el.classList.remove('force-visible');
-                    }});
-                    const parentAcross = input.getAttribute('data-parent-across');
-                    const parentDown = input.getAttribute('data-parent-down');
-                    let targetId = null;
-
-                    if (parentAcross && !parentDown) targetId = parentAcross;
-                    else if (!parentAcross && parentDown) targetId = parentDown;
-                    else if (parentAcross && parentDown) targetId = (currentDirection === 'across') ? parentAcross : parentDown;
-
-                    if (targetId) {{
-                        const numberCell = document.getElementById(targetId);
-                        if (numberCell) {{
-                            const tooltip = numberCell.querySelector('.tooltip');
-                            if (tooltip) tooltip.classList.add('force-visible');
-                        }}
-                    }}
-                }}
-
-                function checkAndJumpToNextWord() {{
-                    for (let w of wordOrder) {{
-                        let r = w.r; let c = w.c; let dir = w.dir;
-                        let dr = (dir === 'across') ? 0 : 1;
-                        let dc = (dir === 'across') ? 1 : 0;
-                        let isWordFull = true; let firstEmptyInput = null;
-                        let currR = r + dr; let currC = c + dc;
-
-                        while (true) {{
-                            let el = document.getElementById("input-" + currR + "-" + currC);
-                            if (!el) break;
-                            if (el.value.length === 0) {{
-                                isWordFull = false;
-                                if (!firstEmptyInput) firstEmptyInput = el;
+                            if (!lastFocusedInput) {{
+                                alert("Najpierw kliknij w puste pole, które chcesz odkryć!");
+                                return;
                             }}
-                            currR += dr; currC += dc;
+
+                            const correct = lastFocusedInput.getAttribute("data-correct");
+                            if (lastFocusedInput.value.toUpperCase() === correct) {{
+                                return;
+                            }}
+
+                            lastFocusedInput.value = correct;
+
+                            lastFocusedInput.classList.add("hint-used");
+                            lastFocusedInput.classList.remove("invalid");
+                            lastFocusedInput.classList.remove("valid");
+
+                            hintCount++;
+                            document.getElementById("hint-count").innerText = "Użyto: " + hintCount;
+
+                            const input = lastFocusedInput;
+                            let r = parseInt(input.getAttribute('data-row'));
+                            let c = parseInt(input.getAttribute('data-col'));
+                            let dr = (currentDirection === 'across') ? 0 : 1;
+                            let dc = (currentDirection === 'across') ? 1 : 0;
+                            let foundNextInWord = false;
+                            let nextR = r; 
+                            let nextC = c;
+                            while (true) {{
+                                nextR += dr; 
+                                nextC += dc;
+                                const nextTarget = document.getElementById("input-" + nextR + "-" + nextC);
+                                if (!nextTarget) break;
+                                if (nextTarget.value.length === 0) {{
+                                    nextTarget.focus();
+                                    foundNextInWord = true;
+                                    break;
+                                }}
+                            }}
+                            if (!foundNextInWord) {{
+                                checkAndJumpToNextWord();
+                            }}
                         }}
 
-                        if (!isWordFull && firstEmptyInput) {{
-                            currentDirection = dir;
-                            firstEmptyInput.focus();
-                            return;
+                        function checkAnswers() {{
+                            if (isSolved) return;
+                            const inputs = document.querySelectorAll('input');
+                            let errors = 0; let empty = 0;
+
+                            inputs.forEach(input => {{
+                                const val = input.value.toUpperCase();
+                                const correct = input.getAttribute("data-correct");
+                                input.classList.remove("valid", "invalid");
+
+
+                                if (val.length === 0) {{ empty++; }}
+                                else if (val === correct) {{ input.classList.add("valid"); }}
+                                else {{ input.classList.add("invalid"); errors++; }}
+                            }});
+
+                            if (errors === 0 && empty === 0) {{
+                                isSolved = true;
+                                clearInterval(timerInterval);
+                                const finalTime = document.getElementById("timer").innerText;
+                                alert("Gratulacje! Czas: " + finalTime + "\\n💡 Podpowiedzi: " + hintCount);
+                            }}
                         }}
-                    }}
-                }}
 
-                function moveFocus(e) {{
-                    const input = e.target;
-                    let r = parseInt(input.getAttribute('data-row'));
-                    let c = parseInt(input.getAttribute('data-col'));
+                        function clearValidation(input) {{
+                            input.classList.remove("valid", "invalid");
+                        }}
 
-                    if (e.key === 'Backspace') {{
-                        if (input.value.length === 0) {{
-                            if (currentDirection === 'across') c--;
-                            if (currentDirection === 'down') r--;
+                        function updateTooltip(input) {{
+                            document.querySelectorAll('.tooltip.force-visible').forEach(el => {{ el.classList.remove('force-visible'); }});
+                            const parentAcross = input.getAttribute('data-parent-across');
+                            const parentDown = input.getAttribute('data-parent-down');
+                            let targetId = null;
+                            if (parentAcross && !parentDown) targetId = parentAcross;
+                            else if (!parentAcross && parentDown) targetId = parentDown;
+                            else if (parentAcross && parentDown) targetId = (currentDirection === 'across') ? parentAcross : parentDown;
+
+                            if (targetId) {{
+                                const numberCell = document.getElementById(targetId);
+                                if (numberCell) {{
+                                    const tooltip = numberCell.querySelector('.tooltip');
+                                    if (tooltip) tooltip.classList.add('force-visible');
+                                }}
+                            }}
+                        }}
+
+                        function checkAndJumpToNextWord() {{
+                            for (let w of wordOrder) {{
+                                let r = w.r; let c = w.c; let dir = w.dir;
+                                let dr = (dir === 'across') ? 0 : 1;
+                                let dc = (dir === 'across') ? 1 : 0;
+                                let isWordFull = true; let firstEmptyInput = null;
+                                let currR = r + dr; let currC = c + dc;
+                                while (true) {{
+                                    let el = document.getElementById("input-" + currR + "-" + currC);
+                                    if (!el) break;
+                                    if (el.value.length === 0) {{
+                                        isWordFull = false;
+                                        if (!firstEmptyInput) firstEmptyInput = el;
+                                    }}
+                                    currR += dr; currC += dc;
+                                }}
+                                if (!isWordFull && firstEmptyInput) {{
+                                    currentDirection = dir;
+                                    firstEmptyInput.focus();
+                                    return;
+                                }}
+                            }}
+                        }}
+
+                        function moveFocus(e) {{
+                            const input = e.target;
+                            let r = parseInt(input.getAttribute('data-row'));
+                            let c = parseInt(input.getAttribute('data-col'));
+                            if (e.key === 'Backspace') {{
+                                if (input.value.length === 0) {{
+                                    if (currentDirection === 'across') c--;
+                                    if (currentDirection === 'down') r--;
+                                    const target = document.getElementById("input-" + r + "-" + c);
+                                    if (target) {{ e.preventDefault(); target.focus(); }}
+                                }}
+                                return;
+                            }}
+                            if (!['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) return;
+                            if (e.key === 'ArrowUp') {{ r--; currentDirection = 'down'; }}
+                            if (e.key === 'ArrowDown') {{ r++; currentDirection = 'down'; }}
+                            if (e.key === 'ArrowLeft') {{ c--; currentDirection = 'across'; }}
+                            if (e.key === 'ArrowRight') {{ c++; currentDirection = 'across'; }}
                             const target = document.getElementById("input-" + r + "-" + c);
                             if (target) {{ e.preventDefault(); target.focus(); }}
                         }}
-                        return;
-                    }}
-                    if (!['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) return;
 
-                    if (e.key === 'ArrowUp') {{ r--; currentDirection = 'down'; }}
-                    if (e.key === 'ArrowDown') {{ r++; currentDirection = 'down'; }}
-                    if (e.key === 'ArrowLeft') {{ c--; currentDirection = 'across'; }}
-                    if (e.key === 'ArrowRight') {{ c++; currentDirection = 'across'; }}
-
-                    const target = document.getElementById("input-" + r + "-" + c);
-                    if (target) {{ e.preventDefault(); target.focus(); }}
-                }}
-
-                function handleInput(e) {{
-                    const input = e.target;
-
-                    clearValidation(input);
-
-                    if (input.value.length === 1) {{
-                        let r = parseInt(input.getAttribute('data-row'));
-                        let c = parseInt(input.getAttribute('data-col'));
-                        let dr = (currentDirection === 'across') ? 0 : 1;
-                        let dc = (currentDirection === 'across') ? 1 : 0;
-                        let foundNextInWord = false;
-                        let nextR = r; let nextC = c;
-
-                        while(true) {{
-                            nextR += dr; nextC += dc;
-                            const nextTarget = document.getElementById("input-" + nextR + "-" + nextC);
-                            if (!nextTarget) break;
-                            if (nextTarget.value.length === 0) {{
-                                nextTarget.focus();
-                                foundNextInWord = true;
-                                break;
+                        function handleInput(e) {{
+                            const input = e.target;
+                            clearValidation(input);
+                            if (input.value.length === 1) {{
+                                let r = parseInt(input.getAttribute('data-row'));
+                                let c = parseInt(input.getAttribute('data-col'));
+                                let dr = (currentDirection === 'across') ? 0 : 1;
+                                let dc = (currentDirection === 'across') ? 1 : 0;
+                                let foundNextInWord = false;
+                                let nextR = r; let nextC = c;
+                                while(true) {{
+                                    nextR += dr; nextC += dc;
+                                    const nextTarget = document.getElementById("input-" + nextR + "-" + nextC);
+                                    if (!nextTarget) break;
+                                    if (nextTarget.value.length === 0) {{
+                                        nextTarget.focus();
+                                        foundNextInWord = true;
+                                        break;
+                                    }}
+                                }}
+                                if (!foundNextInWord) {{ checkAndJumpToNextWord(); }}
                             }}
                         }}
-                        if (!foundNextInWord) {{ checkAndJumpToNextWord(); }}
-                    }}
-                }}
 
-                function handleFocus(input) {{
-                    const pAcross = input.getAttribute('data-parent-across');
-                    const pDown = input.getAttribute('data-parent-down');
-                    if (pAcross && !pDown) currentDirection = 'across';
-                    if (!pAcross && pDown) currentDirection = 'down';
-                    updateTooltip(input);
-                }}
+                        function handleFocus(input) {{
+                            lastFocusedInput = input;
+                            const pAcross = input.getAttribute('data-parent-across');
+                            const pDown = input.getAttribute('data-parent-down');
+                            if (pAcross && !pDown) currentDirection = 'across';
+                            if (!pAcross && pDown) currentDirection = 'down';
+                            updateTooltip(input);
+                        }}
 
-                const inputs = document.querySelectorAll('input');
-                inputs.forEach(input => {{
-                    input.addEventListener('input', handleInput);
-                    input.addEventListener('keydown', moveFocus);
-                    input.addEventListener('focus', function() {{ handleFocus(this); }});
-                }});
+                        const inputs = document.querySelectorAll('input');
+                        inputs.forEach(input => {{
+                            input.addEventListener('input', handleInput);
+                            input.addEventListener('keydown', moveFocus);
+                            input.addEventListener('focus', function() {{ handleFocus(this); }});
+                        }});
 
-                document.body.addEventListener('click', function(e) {{
-                    if (e.target.tagName !== 'INPUT' && e.target.className !== 'check-btn') {{
-                         document.querySelectorAll('.tooltip.force-visible').forEach(el => {{ el.classList.remove('force-visible'); }});
-                    }}
-                }});
-            </script>
-        </body>
-        </html>
-        """
+                        document.body.addEventListener('click', function(e) {{
+                            if (e.target.tagName !== 'INPUT' && !e.target.classList.contains('btn')) {{
+                                 document.querySelectorAll('.tooltip.force-visible').forEach(el => {{ el.classList.remove('force-visible'); }});
+                            }}
+                        }});
+                    </script>
+                </body>
+                </html>
+                """
 
         iframe_height = (ROWS * 37) + 120
         components.html(full_html, height=iframe_height, scrolling=True)

@@ -7,6 +7,32 @@ from io import StringIO
 DATA_DIR = "data"
 
 
+def update_set_content(set_name, new_data):
+    """
+    Nadpisuje zawartość zestawu nowymi danymi.
+    new_data: lista słowników [{'word': '...', 'clue': '...'}, ...]
+    """
+    file_path = os.path.join(DATA_DIR, f"{set_name}.json")
+
+    # Zabezpieczenie: upewnij się, że dane mają odpowiedni format
+    cleaned_data = []
+    for item in new_data:
+        # Ignorujemy puste wiersze, które mogły powstać przy edycji
+        if item.get('word') and item.get('clue'):
+            cleaned_data.append({
+                'word': str(item['word']).strip().upper(),  # Wymuszamy UPPERCASE dla słów
+                'clue': str(item['clue']).strip()
+            })
+
+    try:
+        with open(file_path, "w", encoding="utf-8") as f:
+            json.dump(cleaned_data, f, indent=4, ensure_ascii=False)
+        return True
+    except Exception as e:
+        print(f"Błąd zapisu zestawu: {e}")
+        return False
+
+
 def get_all_sets():
     if not os.path.exists(DATA_DIR):
         return []

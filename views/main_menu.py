@@ -1,11 +1,12 @@
 import streamlit as st
 import json
 import os
-from utils.data_manager import save_word, load_words, get_all_sets, create_set, save_uploaded_set, DATA_DIR
+from utils.data_manager import save_word, load_words, get_all_sets, create_set, save_uploaded_set, DATA_DIR, update_set_content
 from utils.export_code_manager import decode_crossword
 from utils.language_select import render_language_selector
 # Importujemy naszego nowego dostawcę słów
 from utils.random_provider import fetch_random_words
+import pandas as pd
 
 
 @st.dialog("🎲 Generator Losowej Krzyżówki")
@@ -133,12 +134,40 @@ def show_main_menu():
 
     with col2:
         st.subheader("Podgląd zawartości")
-        words = load_words(current_set)
-        if words:
-            st.dataframe(words, hide_index=True, use_container_width=True)
-            st.caption(f"Liczba haseł: {len(words)}")
-        else:
-            st.info("Pusto. Dodaj coś!")
+        words_data = load_words(current_set)
+        df = pd.DataFrame(words_data)
+        if df.empty:
+            df = pd.DataFrame(columns=["word", "clue"])
+        st.info("Kliknij w komórkę, aby edytować. Zaznacz wiersz i naciśnij Delete, aby usunąć.")
+        edited_df = st.data_editor(
+            df,
+            column_config={
+                "word": st.column_config.TextColumn(
+                    "Słowo",
+                    help="Hasło do krzyżówki (będzie zamienione na wielkie litery)",
+                    max_chars=20,
+                    required=True
+                ),
+                "clue": st.column_config.TextColumn(
+                    "Podpowiedź / Definicja",
+                    help="Opis wyświetlany graczowi",
+                    required=True
+                )
+            },
+            num_rows="dynamic",
+            use_container_width=True,
+            key=f"editor_{current_set}",
+            hide_index=True
+        )
+        col_save, col_info = st.columns([1, 4])
+        with col_save:
+            if st.button("Zapisz zmiany w tabeli", type="primary"):
+                new_data = edited_df.to_dict('records')
+                if update_set_content(current_set, new_data):
+                    st.toast("Zestaw został zaktualizowany!")
+                else:
+                    st.error("Wystąpił błąd podczas zapisu.")
+        st.divider()
 
     st.markdown("---")
     st.subheader("Import Krzyżówki z Kodu")
