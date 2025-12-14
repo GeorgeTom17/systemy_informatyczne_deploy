@@ -211,7 +211,7 @@ def show_crossword_view(student_mode=False, session_name=None, student_name=None
                         st.rerun()
 
             else:
-                st.info("Dziękujemy za przesłanie opinii! 🙏")
+                st.info("Dziękujemy za przesłanie opinii!")
 
     # ==================================================
     # 3. RENDEROWANIE
@@ -634,18 +634,25 @@ def show_crossword_view(student_mode=False, session_name=None, student_name=None
                             st.code(full_link, language="text")
 
                 if not student_mode and 'difficulty_stats' in st.session_state:
-                    st.subheader("Analiza Trudności (wg Twojego AI)")
-                    stats = st.session_state.difficulty_stats
+                    st.subheader("Analiza Trudności (wg AI)")
 
-                    k1, k2, k3 = st.columns(3)
-                    k1.metric("Łatwe", stats["ŁATWE"])
-                    k2.metric("Średnie", stats["ŚREDNIE"])
-                    k3.metric("Trudne", stats["TRUDNE"])
+                    c_stats, c_refresh = st.columns([3, 1])
+                    with c_stats:
+                        stats = st.session_state.difficulty_stats
+                        k1, k2, k3 = st.columns(3)
+                        k1.metric("Łatwe", stats.get("ŁATWE", 0))
+                        k2.metric("Średnie", stats.get("ŚREDNIE", 0))
+                        k3.metric("Trudne", stats.get("TRUDNE", 0))
 
-                    if stats["TRUDNE"] > stats["ŁATWE"]:
-                        st.warning("Uwaga! Twoje AI uważa, że ta krzyżówka może być trudna dla uczniów.")
-                    else:
-                        st.success("Poziom trudności wydaje się odpowiedni.")
+                    with c_refresh:
+                        if st.button("Doucz AI teraz"):
+                            with st.spinner("Pobieram nowe dane od uczniów..."):
+                                acc = ai_engine.train()
+                            st.success(f"Model zaktualizowany! (Dokładność: {acc * 100:.0f}%)")
+                            st.rerun()
+
+                    if stats.get("TRUDNE", 0) > stats.get("ŁATWE", 0):
+                        st.warning("Uwaga! Model uważa, że to może być trudne.")
 
     st.markdown("---")
     c1, c2 = st.columns(2)
