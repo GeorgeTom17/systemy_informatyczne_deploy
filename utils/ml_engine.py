@@ -4,6 +4,8 @@ from sklearn.ensemble import RandomForestClassifier
 import difflib
 import os
 from utils.db_manager import fetch_training_data
+from utils.db_supabase import fetch_ml_data_from_supabase
+
 
 LANG_CHARSETS = {
     "Polski": "ĄĆĘŁŃÓŚŹŻąćęłńóśźż",
@@ -71,12 +73,10 @@ class DifficultyModel:
         """
         all_data = INITIAL_DATA.copy()
 
-        try:
-            cloud_data = fetch_training_data()
-            if cloud_data:
-                all_data.extend(cloud_data)
-        except Exception:
-            pass
+        # 2. Pobieramy wiedzę z Supabase
+        cloud_data = fetch_ml_data_from_supabase()
+        if cloud_data:
+            all_data.extend(cloud_data)
 
         X = []
         y = []

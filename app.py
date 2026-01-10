@@ -6,7 +6,7 @@ from views.crossword_view import show_crossword_view
 from views.sessions_view import show_sessions_view
 from utils.export_code_manager import decode_crossword
 from views.ml_view import show_ml_view
-from utils.db_mssql import test_mssql_connection
+from utils.db_supabase import test_supabase_connection
 
 st.set_page_config(page_title="krzyżGŁówkuj", layout="wide", page_icon="🧩")
 
@@ -86,10 +86,10 @@ else:
             st.session_state.current_view = 'stats'
 
         st.markdown("---")
-        st.subheader("🛠️ Test Połączenia MSSQL")
+        st.subheader("🛠️ Test Połączenia Supabase")
         if st.button("Uruchom test połączenia"):
-            with st.spinner("Próbuję połączyć się z serwerem wydziałowym..."):
-                success, message = test_mssql_connection()
+            with st.spinner("Próbuję połączyć się z serwerem supabase..."):
+                success, message = test_supabase_connection()
                 if success:
                     st.success(message)
                     st.balloons()
