@@ -11,3 +11,4 @@ gspread
 oauth2client
 pyodbc
 sshtunnel
+supabase
