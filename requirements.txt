@@ -9,3 +9,4 @@ scikit-learn
 joblib
 gspread
 oauth2client
+pyodbc
