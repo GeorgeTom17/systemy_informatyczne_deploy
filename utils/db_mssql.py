@@ -1,22 +1,46 @@
 import pyodbc
 import streamlit as st
 import pandas as pd
-
+from sshtunnel import SSHTunnelForwarder
 
 def get_mssql_connection():
-    """Tworzy połączenie z serwerem wydziałowym MSSQL."""
+    # 1. Konfiguracja tunelu SSH
+    # Dane pobieramy z st.secrets
+    ssh_host = st.secrets["ssh"]["host"]  # np. lab.wmi.amu.edu.pl
+    ssh_user = st.secrets["ssh"]["username"]  # Twój login (s464981)
+    ssh_pwd = st.secrets["ssh"]["password"]  # Twoje hasło do systemów WMI
+
+    db_server = st.secrets["mssql"]["server"]  # Wewnętrzny adres IP/host bazy w sieci WMI
+    db_port = 1433  # Standardowy port MSSQL
+
     try:
-        # Pobieramy dane z st.secrets
+        # Tworzymy tunel
+        server = SSHTunnelForwarder(
+            (ssh_host, 22),
+            ssh_username=ssh_user,
+            ssh_password=ssh_pwd,
+            remote_bind_address=(db_server, db_port)
+        )
+
+        server.start()
+
+        # 2. Połączenie ODBC przez lokalny port tunelu
         conn_str = (
             f"DRIVER={{ODBC Driver 17 for SQL Server}};"
-            f"SERVER={st.secrets['mssql']['server']};"
+            f"SERVER=127.0.0.1;"  # Łączymy się z lokalnym końcem tunelu
+            f"PORT={server.local_bind_port};"
             f"DATABASE={st.secrets['mssql']['database']};"
             f"UID={st.secrets['mssql']['username']};"
-            f"PWD={st.secrets['mssql']['password']}"
+            f"PWD={st.secrets['mssql']['password']};"
         )
-        return pyodbc.connect(conn_str)
+
+        conn = pyodbc.connect(conn_str)
+        # Musimy zachować obiekt 'server', żeby tunel nie zamknął się za szybko
+        st.session_state.ssh_tunnel = server
+        return conn
+
     except Exception as e:
-        st.error(f"❌ Błąd połączenia z MSSQL: {e}")
+        st.error(f"Błąd tunelu/bazy: {e}")
         return None
 
 
