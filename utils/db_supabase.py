@@ -195,3 +195,18 @@ def get_results_for_session_from_db(session_id):
     except Exception as e:
         st.error(f"Błąd pobierania wyników: {e}")
         return []
+
+def save_result_to_db(session_id, student_name, time_taken, hint_count=0):
+    """Zapisuje wynik ucznia do bazy Supabase."""
+    supabase = get_supabase_client()
+    try:
+        supabase.table("results").insert({
+            "session_id": session_id,
+            "student_name": student_name,
+            "time_taken": time_taken,
+            "hint_count": hint_count
+        }).execute()
+        return True
+    except Exception as e:
+        st.error(f"Błąd zapisu wyniku w bazie: {e}")
+        return False
