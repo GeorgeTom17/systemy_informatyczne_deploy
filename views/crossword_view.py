@@ -10,7 +10,7 @@ from utils.db_supabase import (
     get_all_sets_from_db,
     load_words_from_db,
     save_session_to_db,
-    save_result_to_db
+    save_result_to_db, get_supabase_client
 )
 from utils.export_code_manager import encode_crossword
 from utils.ml_engine import ai_engine
@@ -147,16 +147,26 @@ def show_crossword_view(student_mode=False, session_name=None, student_name=None
                         st.error("Wpisz czas!")
                     else:
                         s_id = st.session_state.get('active_session_id')
-
-                        if s_id:
-                            success = save_result_to_db(
-                                session_id=s_id,
-                                student_name=student_name,
-                                time_taken=final_time
-                            )
-                            if success:
-                                st.session_state.result_submitted = True
-                                st.rerun()
+                        supabase = get_supabase_client()
+                        s_id = st.session_state.get('active_session_id')
+                        supabase = get_supabase_client()  # zaimportuj klienta
+                        live_data = supabase.table("realtime_scores") \
+                            .select("score, hint_count") \
+                            .eq("session_id", s_id) \
+                            .eq("student_name", student_name) \
+                            .single().execute()
+                        actual_hints = 0
+                        if live_data.data:
+                            actual_hints = live_data.data.get('hint_count', 0)
+                        success = save_result_to_db(
+                            session_id=s_id,
+                            student_name=student_name,
+                            time_taken=final_time,
+                            hint_count=actual_hints
+                        )
+                        if success:
+                            st.session_state.result_submitted = True
+                            st.rerun()
                         else:
                             st.error("Błąd krytyczny: Brak powiązania z sesją. Odśwież stronę z kodu QR.")
         else:
@@ -463,6 +473,7 @@ def show_crossword_view(student_mode=False, session_name=None, student_name=None
                                         student_name: studentName,
                                         score: score,
                                         progress_percent: progressPercent,
+                                        hint_count: hintCount,
                                         last_updated: new Date().toISOString()
                                     }})
                                 }});
