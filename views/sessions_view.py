@@ -23,7 +23,7 @@ def render_live_ranking_fragment(s_id):
 
             with col_name:
                 st.write(f"**{player['student_name']}**")
-                st.caption(f"Punkty: {player['score']} | {player['hint_count']}")
+                st.caption(f"Punkty: {player['score']} | Podpowiedzi: {player['hint_count']}")
 
             with col_stats:
                 progress_val = player['progress_percent'] / 100
