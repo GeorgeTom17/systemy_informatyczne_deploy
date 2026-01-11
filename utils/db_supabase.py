@@ -69,13 +69,47 @@ def get_all_sets_from_db():
 
 
 def create_set_in_db(set_name):
-    """Tworzy nowy zestaw w bazie."""
+    """Tworzy nowy zestaw i zwraca jego ID."""
     supabase = get_supabase_client()
     try:
-        supabase.table("sets").insert({"name": set_name}).execute()
-        return True
+        # insert().execute() w nowym kliencie Supabase zwraca dane w .data
+        response = supabase.table("sets").insert({"name": set_name}).execute()
+        if response.data:
+            return response.data[0]['id']
+        return None
     except Exception as e:
         st.error(f"Błąd tworzenia zestawu: {e}")
+        return None
+
+
+def bulk_insert_words(set_id, words_list):
+    supabase = get_supabase_client()
+    try:
+        to_insert = []
+        seen_in_batch = set()  # Unikamy duplikatów wewnątrz wgrywanego pliku
+
+        for item in words_list:
+            w = str(item["word"]).upper().strip()
+            if w in seen_in_batch or not w:
+                continue
+
+            to_insert.append({
+                "set_id": set_id,
+                "word": w,
+                "clue": str(item["clue"]).strip()
+            })
+            seen_in_batch.add(w)
+
+        if to_insert:
+            # upsert automatycznie obsłuży konflikt na podstawie set_id + word
+            supabase.table("words").upsert(
+                to_insert,
+                on_conflict="set_id, word"
+            ).execute()
+
+        return True
+    except Exception as e:
+        st.error(f"Błąd masowego zapisu: {e}")
         return False
 
 
@@ -98,21 +132,25 @@ def load_words_from_db(set_name):
 
 
 def save_word_to_db(word, clue, set_name):
-    """Zapisuje pojedyncze słowo do zestawu."""
     supabase = get_supabase_client()
     try:
+        # 1. Pobieramy ID zestawu
         set_res = supabase.table("sets").select("id").eq("name", set_name).single().execute()
         set_id = set_res.data['id']
 
+        # 2. Próbujemy wstawić słowo
         supabase.table("words").insert({
             "set_id": set_id,
             "word": word.strip().upper(),
             "clue": clue.strip()
         }).execute()
-        return True
+
+        return True, "✅ Dodano hasło!"
     except Exception as e:
-        st.error(f"Błąd zapisu słowa: {e}")
-        return False
+        # Sprawdzamy, czy błąd to naruszenie unikalności (Unique Constraint)
+        if "unique_word_per_set" in str(e):
+            return False, "⚠️ To słowo już istnieje w tym zestawie!"
+        return False, f"❌ Błąd bazy: {e}"
 
 
 def update_set_content_in_db(set_name, new_data):
