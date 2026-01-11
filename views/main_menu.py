@@ -1,7 +1,7 @@
 import streamlit as st
 import json
 import os
-from utils.data_manager import save_word, load_words, get_all_sets, create_set, save_uploaded_set, DATA_DIR, update_set_content
+from utils.data_manager import save_word, load_words, get_all_sets, create_set, import_file_to_db, DATA_DIR, update_set_content
 from utils.export_code_manager import decode_crossword
 from utils.language_select import render_language_selector
 # Importujemy naszego nowego dostawcę słów
@@ -66,7 +66,7 @@ def open_random_generator_window():
 def show_main_menu():
     # --- Sidebar: Wybór zestawu ---
     with st.sidebar:
-        st.header("Zarządzanie Zestawami")
+        st.header("📂 Zarządzanie Zestawami")
 
         # Tworzenie nowego zestawu w DB
         new_set = st.text_input("Nowy zestaw:")
@@ -76,6 +76,34 @@ def show_main_menu():
                     st.success(f"Utworzono {new_set}")
                     st.rerun()
 
+        st.divider()
+
+        # 2. Wgrywanie pliku (NOWA LOKALIZACJA)
+        st.subheader("Wgraj plik")
+        uploaded_file = st.file_uploader(
+            "Wybierz plik (JSON, CSV, XLSX, TXT)",
+            type=["json", "csv", "xlsx", "txt"],
+            label_visibility="collapsed"
+        )
+
+        if uploaded_file is not None:
+            # Zabezpieczenie przed wielokrotnym wgrywaniem
+            if 'last_uploaded' not in st.session_state or st.session_state.last_uploaded != uploaded_file.name:
+                with st.spinner("Importowanie do bazy danych..."):
+                    success, message = import_file_to_db(uploaded_file)
+
+                    if success:
+                        st.session_state.last_uploaded = uploaded_file.name
+                        # Automatycznie wybieramy nowo wgrany zestaw
+                        new_name = os.path.splitext(uploaded_file.name)[0]
+                        st.session_state.active_set = new_name
+                        st.toast(message, icon="✅")
+                        st.rerun()
+                    else:
+                        st.error(message)
+
+        st.divider()
+
         sets = get_all_sets_from_db()
         if sets:
             current_set = st.selectbox("Wybierz zestaw do edycji:", sets)
@@ -84,6 +112,7 @@ def show_main_menu():
             current_set = None
 
     if current_set:
+        # --- Główna część (Twoja sekcja, teraz na danych z DB) ---
         st.header(f"Edytujesz zestaw: {current_set.upper()}")
 
         col1, col2 = st.columns(2)
@@ -98,9 +127,12 @@ def show_main_menu():
                 if submitted:
                     if new_word and new_clue:
                         # Zmienione na save_word_to_db
-                        if save_word_to_db(new_word, new_clue, current_set):
-                            st.success(f"Dodano do '{current_set}'")
+                        success, message = save_word_to_db(new_word, new_clue, current_set)
+                        if success:
+                            st.success(message)
                             st.rerun()
+                        else:
+                            st.error(message)  # Tu wyświetli się: "To słowo już istnieje w tym zestawie!"
                     else:
                         st.error("Wypełnij oba pola.")
 

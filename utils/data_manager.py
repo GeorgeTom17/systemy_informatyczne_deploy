@@ -3,6 +3,7 @@ import os
 import glob
 import pandas as pd
 from io import StringIO
+from utils.db_supabase import create_set_in_db, bulk_insert_words
 
 DATA_DIR = "data"
 
@@ -103,99 +104,70 @@ def normalize_data_frame(df):
     return result, None
 
 
+def normalize_data_frame(df):
+    """Pomocnicza funkcja do standaryzacji kolumn DataFrame."""
+    # Szukamy kolumn bez względu na wielkość liter
+    df.columns = [c.lower().strip() for c in df.columns]
+    if 'word' in df.columns and 'clue' in df.columns:
+        return df[['word', 'clue']].to_dict('records'), None
+    return [], "Błąd: Plik musi zawierać kolumny 'word' oraz 'clue'."
 
-def save_uploaded_set(uploaded_file):
+
+def import_file_to_db(uploaded_file):
+    """Parsuje plik i wysyła go do Supabase."""
     filename = uploaded_file.name
     ext = os.path.splitext(filename)[1].lower()
-    target_name = os.path.splitext(filename)[0] + ".json"
-    target_path = os.path.join(DATA_DIR, target_name)
+    set_name = os.path.splitext(filename)[0]
 
     content_list = []
     error_msg = None
 
     try:
+        # --- PARSOWANIE (Formaty bez zmian) ---
         if ext == '.json':
             content_list = json.load(uploaded_file)
         elif ext in ['.xlsx', '.xls']:
-            try:
-                df = pd.read_excel(uploaded_file)
-                content_list, error_msg = normalize_data_frame(df)
-            except Exception as e:
-                return False, f"Błąd Excela: {str(e)}"
+            df = pd.read_excel(uploaded_file)
+            content_list, error_msg = normalize_data_frame(df)
         elif ext == '.csv':
             try:
-                try:
-                    df = pd.read_csv(uploaded_file, encoding='utf-8')
-                except UnicodeDecodeError:
-                    uploaded_file.seek(0)
-                    df = pd.read_csv(uploaded_file, encoding='cp1250')
+                df = pd.read_csv(uploaded_file, encoding='utf-8')
+            except:
+                uploaded_file.seek(0)
+                df = pd.read_csv(uploaded_file, encoding='cp1250')
 
-                if len(df.columns) < 2:
-                    uploaded_file.seek(0)
-                    try:
-                        df = pd.read_csv(uploaded_file, sep=';', encoding='utf-8')
-                    except UnicodeDecodeError:
-                        uploaded_file.seek(0)
-                        df = pd.read_csv(uploaded_file, sep=';', encoding='cp1250')
+            # Autodetekcja separatora jeśli tylko jedna kolumna
+            if len(df.columns) < 2:
+                uploaded_file.seek(0)
+                df = pd.read_csv(uploaded_file, sep=';', encoding='utf-8')
 
-                content_list, error_msg = normalize_data_frame(df)
-            except Exception as e:
-                return False, f"Błąd CSV: {str(e)}"
+            content_list, error_msg = normalize_data_frame(df)
         elif ext == '.txt':
-            try:
-                string_data = uploaded_file.read().decode("utf-8")
-                lines = string_data.split('\n')
-
-                for line in lines:
-                    line = line.strip()
-                    if not line: continue
-
-                    parts = []
-
-                    if ';' in line:
-                        parts = line.split(';', 1)
-                    elif ':' in line:
-                        parts = line.split(':', 1)
-                    elif '-' in line:
-                        parts = line.split('-', 1)
-                    elif ',' in line:
-                        parts = line.split(',', 1)
-                    else:
-                        continue
-
-                    if len(parts) == 2:
-                        content_list.append({
-                            "word": parts[0].strip(),
-                            "clue": parts[1].strip()
-                        })
-
-                if not content_list:
-                    return False, "Plik TXT pusty lub zły format (użyj separatora: ; : - lub ,)"
-
-            except Exception as e:
-                return False, f"Błąd TXT: {str(e)}"
-
-        else:
-            return False, f"Nieobsługiwany format: {ext}"
+            string_data = uploaded_file.read().decode("utf-8")
+            for line in string_data.split('\n'):
+                line = line.strip()
+                if not line: continue
+                for sep in [';', ':', '-', ',']:
+                    if sep in line:
+                        parts = line.split(sep, 1)
+                        content_list.append({"word": parts[0].strip(), "clue": parts[1].strip()})
+                        break
 
         if error_msg: return False, error_msg
-        if not isinstance(content_list, list): return False, "Dane muszą być listą."
+        if not content_list: return False, "Nie znaleziono danych w pliku."
 
-        final_data = []
-        for item in content_list:
-            if "word" in item and "clue" in item:
-                final_data.append({
-                    "word": str(item["word"]).upper().strip(),
-                    "clue": str(item["clue"]).strip()
-                })
+        # --- ZAPIS DO BAZY (NOWOŚĆ) ---
+        # 1. Tworzymy zestaw
+        set_id = create_set_in_db(set_name)
+        if not set_id:
+            return False, "Nie udało się utworzyć zestawu (może już istnieje?)"
 
-        if not final_data: return False, "Nie znaleziono poprawnych par."
+        # 2. Wstawiamy słowa masowo
+        success = bulk_insert_words(set_id, content_list)
 
-        os.makedirs(DATA_DIR, exist_ok=True)
-        with open(target_path, "w", encoding="utf-8") as f:
-            json.dump(final_data, f, indent=4, ensure_ascii=False)
-
-        return True, f"Zaimportowano {len(final_data)} słów!"
+        if success:
+            return True, f"Zaimportowano {len(content_list)} haseł do bazy!"
+        return False, "Błąd podczas wstawiania rekordów do bazy."
 
     except Exception as e:
-        return False, f"Błąd: {str(e)}"
+        return False, f"Błąd krytyczny: {str(e)}"
