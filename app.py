@@ -1,36 +1,50 @@
 import streamlit as st
-
-# Importy
 from views.main_menu import show_main_menu, open_random_generator_window
 from views.crossword_view import show_crossword_view
 from views.sessions_view import show_sessions_view
 from utils.export_code_manager import decode_crossword
 from views.ml_view import show_ml_view
-from utils.db_supabase import test_supabase_connection
+from utils.db_supabase import test_supabase_connection, get_session_from_db
 
 st.set_page_config(page_title="krzyżGŁówkuj", layout="wide", page_icon="🧩")
 
-incoming_data = st.query_params.get("data")
-incoming_name = st.query_params.get("name")
+query_params = st.query_params
+incoming_session_id = query_params.get("session_id")
+incoming_data = query_params.get("data")
+incoming_name = query_params.get("name")
 
-if incoming_data:
+if incoming_session_id:
+    if st.session_state.get('current_view') != 'student_mode':
+        with st.spinner("Pobieram dane sesji z bazy..."):
+            session_data = get_session_from_db(incoming_session_id)
+
+            if session_data:
+                decoded = decode_crossword(session_data["raw_code"])
+                if decoded:
+                    st.session_state.crossword_data = decoded
+                    st.session_state.session_name = session_data["name"]
+                    st.session_state.current_view = 'student_mode'
+
+                    if 'student_name' in st.session_state:
+                        del st.session_state['student_name']
+                    st.rerun()
+            else:
+                st.error("Nie znaleziono sesji w bazie danych.")
+                st.stop()
+
+elif incoming_data:
     if st.session_state.get('current_view') != 'student_mode':
         decoded = decode_crossword(incoming_data)
         if decoded:
             st.session_state.crossword_data = decoded
             st.session_state.current_view = 'student_mode'
-
-            if incoming_name:
-                st.session_state.session_name = incoming_name
-            else:
-                st.session_state.session_name = "Zadanie Domowe"
+            st.session_name = incoming_name if incoming_name else "Zadanie Domowe"
 
             if 'student_name' in st.session_state:
                 del st.session_state['student_name']
-
             st.rerun()
         else:
-            st.error("Błąd kodu.")
+            st.error("Błąd dekodowania kodu.")
             st.stop()
 
 if 'current_view' not in st.session_state:
@@ -95,7 +109,7 @@ else:
                     st.balloons()
                 else:
                     st.error("❌ Połączenie nieudane")
-                    st.code(message, language="text")  # Wyświetli dokładny błąd ODBC
+                    st.code(message, language="text")
 
     with main_col:
         if st.session_state.current_view == 'main_menu':

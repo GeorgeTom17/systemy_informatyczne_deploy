@@ -618,10 +618,6 @@ def show_crossword_view(student_mode=False, session_name=None, student_name=None
 
         iframe_height = (ROWS * 37) + 120
         components.html(full_html, height=iframe_height, scrolling=True)
-
-        # ==================================================
-        # 4. EKSPORT (TYLKO DLA NAUCZYCIELA)
-        # ==================================================
         if not student_mode:
             with col_export:
                 with st.popover("Udostępnij / Zapisz Sesję", use_container_width=True):
@@ -635,15 +631,17 @@ def show_crossword_view(student_mode=False, session_name=None, student_name=None
                         else:
                             raw_code = encode_crossword(st.session_state.crossword_data)
 
-                            save_session(new_session_name, st.session_state.crossword_data, raw_code)
-                            st.success(f"Zapisano sesję: {new_session_name}")
+                            from utils.db_supabase import save_session_to_db
+                            session_id = save_session_to_db(new_session_name, raw_code)
 
-                            safe_name = urllib.parse.quote(new_session_name)
-                            full_link = f"{APP_BASE_URL}/?data={raw_code}&name={safe_name}"
+                            if session_id:
+                                st.success(f"Zapisano sesję: {new_session_name} (ID: {session_id})")
 
-                            st.image(generate_qr_image(full_link), use_container_width=True)
-                            st.caption("Link bezpośredni:")
-                            st.code(full_link, language="text")
+                                full_link = f"{APP_BASE_URL}/?session_id={session_id}"
+
+                                st.image(generate_qr_image(full_link), use_container_width=True)
+                                st.caption("Link bezpośredni do sesji:")
+                                st.code(full_link, language="text")
 
                 if not student_mode and 'difficulty_stats' in st.session_state:
                     st.subheader("Analiza Trudności (wg AI)")
