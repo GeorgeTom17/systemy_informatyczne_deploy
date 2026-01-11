@@ -448,13 +448,15 @@ def show_crossword_view(student_mode=False, session_name=None, student_name=None
                             const score = (correctCount * 10) - (hintCount * 5);
                             
                             try {{
-                                await fetch(`supabaseUrl/rest/v1/realtime_scores`, {{
-                                    method: 'POST',
+                                const url = `supabaseUrl/rest/v1/realtime_scores?on_conflict=session_id,student_name`;
+
+                                const response = await fetch(url, {{
+                                    method: 'POST', // PostgREST używa POST do Upsertu
                                     headers: {{
                                         'apikey': supabaseKey,
                                         'Authorization': `Bearer supabaseKey`,
                                         'Content-Type': 'application/json',
-                                        'Prefer': 'resolution=merge-duplicates'
+                                        'Prefer': 'return=minimal,resolution=merge-duplicates' 
                                     }},
                                     body: JSON.stringify({{
                                         session_id: sessionId,
