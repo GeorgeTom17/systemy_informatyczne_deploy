@@ -74,10 +74,6 @@ def show_crossword_view(student_mode=False, session_name=None, student_name=None
         with col_gen:
             target_count = st.slider("Liczba słów:", 3, 40, 10)
             generate_clicked = st.button("Generuj Nową", type="primary")
-        with col_back:
-            if st.button("Menu"):
-                st.session_state.current_view = 'main_menu'
-                st.rerun()
 
         if is_imported and not generate_clicked:
             st.info("To jest zaimportowana/wczytana krzyżówka.")
@@ -629,7 +625,7 @@ def show_crossword_view(student_mode=False, session_name=None, student_name=None
                 with st.popover("Udostępnij Sesję (QR)", use_container_width=True):
                     st.subheader("Utwórz sesję w bazie danych")
                     new_session_name = st.text_input("Nazwa sesji:", placeholder="np. Lekcja 1")
-                    if st.button("Generuj krótki kod QR", type="primary"):
+                    if st.button("Generuj kod QR", type="primary"):
                         if not new_session_name:
                             st.error("Podaj nazwę!")
                         else:

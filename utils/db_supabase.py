@@ -177,3 +177,21 @@ def get_session_from_db(session_id):
     except Exception as e:
         st.error(f"Nie znaleziono sesji o ID {session_id}: {e}")
         return None
+
+def get_all_sessions_from_db():
+    supabase = get_supabase_client()
+    try:
+        response = supabase.table("sessions").select("id, name, created_at").order("created_at", desc=True).execute()
+        return response.data
+    except Exception as e:
+        st.error(f"Błąd pobierania sesji: {e}")
+        return []
+
+def get_results_for_session_from_db(session_id):
+    supabase = get_supabase_client()
+    try:
+        response = supabase.table("results").select("student_name, time_taken, hint_count, submitted_at").eq("session_id", session_id).order("time_taken").execute()
+        return response.data
+    except Exception as e:
+        st.error(f"Błąd pobierania wyników: {e}")
+        return []
