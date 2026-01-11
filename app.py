@@ -17,14 +17,13 @@ if incoming_session_id:
     if st.session_state.get('current_view') != 'student_mode':
         with st.spinner("Pobieram dane sesji z bazy..."):
             session_data = get_session_from_db(incoming_session_id)
-
             if session_data:
                 decoded = decode_crossword(session_data["raw_code"])
                 if decoded:
                     st.session_state.crossword_data = decoded
                     st.session_state.session_name = session_data["name"]
+                    st.session_state.active_session_id = incoming_session_id
                     st.session_state.current_view = 'student_mode'
-
                     if 'student_name' in st.session_state:
                         del st.session_state['student_name']
                     st.rerun()

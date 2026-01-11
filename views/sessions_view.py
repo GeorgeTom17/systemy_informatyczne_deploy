@@ -28,7 +28,6 @@ def show_sessions_view():
                     full_link = f"{APP_BASE_URL}/?session_id={s_id}"
                     st.write("**Link dla uczniów:**")
                     st.code(full_link, language="text")
-                    st.info("Ten link możesz wysłać uczniom bezpośrednio lub pokazać im kod QR.")
                 with c2:
                     qr_img = generate_qr_image(full_link)
                     st.image(qr_img, caption="Skanuj, aby grać", width=150)

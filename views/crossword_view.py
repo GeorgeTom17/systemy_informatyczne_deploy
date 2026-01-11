@@ -9,7 +9,8 @@ from utils.db_manager import save_student_feedback
 from utils.db_supabase import (
     get_all_sets_from_db,
     load_words_from_db,
-    save_session_to_db
+    save_session_to_db,
+    save_result_to_db
 )
 from utils.export_code_manager import encode_crossword
 from utils.ml_engine import ai_engine
@@ -127,13 +128,11 @@ def show_crossword_view(student_mode=False, session_name=None, student_name=None
             st.error("Brak danych krzyżówki. Użyj poprawnego kodu QR.")
             return
 
-    # Sekcja dla ucznia - wysyłanie wyniku
     if student_mode:
         st.markdown("---")
         st.subheader("Rozwiązane?")
         is_submitted = st.session_state.get('result_submitted', False)
         is_feedback_sent = st.session_state.get('feedback_sent', False)
-
         if not is_submitted:
             st.info("Gdy skończysz, wpisz swój czas poniżej:")
             with st.form("submit_result_form"):
@@ -147,10 +146,19 @@ def show_crossword_view(student_mode=False, session_name=None, student_name=None
                     if not final_time:
                         st.error("Wpisz czas!")
                     else:
-                        # Tutaj wywołanie zapisu wyniku do bazy (np. save_result_to_db)
-                        # Zakładając, że masz powiązanie z session_id w st.session_state
-                        st.session_state.result_submitted = True
-                        st.rerun()
+                        s_id = st.session_state.get('active_session_id')
+
+                        if s_id:
+                            success = save_result_to_db(
+                                session_id=s_id,
+                                student_name=student_name,
+                                time_taken=final_time
+                            )
+                            if success:
+                                st.session_state.result_submitted = True
+                                st.rerun()
+                        else:
+                            st.error("Błąd krytyczny: Brak powiązania z sesją. Odśwież stronę z kodu QR.")
         else:
             st.success("Wynik wysłany! Możesz zamknąć stronę.")
 
@@ -415,6 +423,53 @@ def show_crossword_view(student_mode=False, session_name=None, student_name=None
                         let startTime = Date.now();
                         let timerInterval;
                         let isSolved = false;
+                        
+                        const supabaseUrl = "{st.secrets['supabase']['url']}";
+                        const supabaseKey = "{st.secrets['supabase']['key']}";
+                        const sessionId = {st.session_state.get('active_session_id', 0)};
+                        const studentName = "{student_name}";
+                        
+                        let currentScore = 0;
+                        let correctLettersSet = new Set();
+                        
+                        async function syncRealtimeScore() {{
+                            if (!sessionId || !studentName) return;
+
+                            const inputs = document.querySelectorAll('input');
+                            const totalCells = inputs.length;
+                            let correctCount = 0;
+                        
+                            inputs.forEach(input => {{
+                                if (input.value.toUpperCase() === input.getAttribute("data-correct")) {{
+                                    correctCount++;
+                                }}
+                            }});
+                            const progressPercent = Math.round((correctCount / totalCells) * 100);
+                            const score = (correctCount * 10) - (hintCount * 5);
+                            
+                            try {{
+                                await fetch(`supabaseUrl/rest/v1/realtime_scores`, {{
+                                    method: 'POST',
+                                    headers: {{
+                                        'apikey': supabaseKey,
+                                        'Authorization': `Bearer supabaseKey`,
+                                        'Content-Type': 'application/json',
+                                        'Prefer': 'resolution=merge-duplicates'
+                                    }},
+                                    body: JSON.stringify({{
+                                        session_id: sessionId,
+                                        student_name: studentName,
+                                        score: score,
+                                        progress_percent: progressPercent,
+                                        last_updated: new Date().toISOString()
+                                    }})
+                                }});
+                            }} catch(e) {{
+                                console.error("Błąd synchronizacji:", e);
+                            }}
+                        }}
+                        
+                        setInterval(syncRealtimeScore, 500);
 
                         function updateTimer() {{
                             if (isSolved) return;
@@ -448,6 +503,7 @@ def show_crossword_view(student_mode=False, session_name=None, student_name=None
                             lastFocusedInput.classList.remove("valid");
 
                             hintCount++;
+                            syncRealtimeScore()
                             document.getElementById("hint-count").innerText = "Użyto: " + hintCount;
 
                             const input = lastFocusedInput;
@@ -570,6 +626,7 @@ def show_crossword_view(student_mode=False, session_name=None, student_name=None
                             const input = e.target;
                             clearValidation(input);
                             if (input.value.length === 1) {{
+                                syncRealtimeScore()
                                 let r = parseInt(input.getAttribute('data-row'));
                                 let c = parseInt(input.getAttribute('data-col'));
                                 let dr = (currentDirection === 'across') ? 0 : 1;
