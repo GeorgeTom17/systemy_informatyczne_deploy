@@ -55,3 +55,95 @@ def test_supabase_connection():
         elif "404" in error_msg:
             return False, "❌ Błąd 404: Nieprawidłowy URL projektu lub brak tabeli 'sets'."
         return False, f"❌ Wystąpił błąd: {error_msg}"
+
+
+def get_all_sets_from_db():
+    """Pobiera listę nazw wszystkich zestawów."""
+    supabase = get_supabase_client()
+    try:
+        response = supabase.table("sets").select("name").execute()
+        return [row['name'] for row in response.data]
+    except Exception as e:
+        st.error(f"Błąd pobierania zestawów: {e}")
+        return []
+
+
+def create_set_in_db(set_name):
+    """Tworzy nowy zestaw w bazie."""
+    supabase = get_supabase_client()
+    try:
+        supabase.table("sets").insert({"name": set_name}).execute()
+        return True
+    except Exception as e:
+        st.error(f"Błąd tworzenia zestawu: {e}")
+        return False
+
+
+def load_words_from_db(set_name):
+    """Pobiera słowa dla konkretnego zestawu używając JOIN."""
+    supabase = get_supabase_client()
+    try:
+        # Najpierw pobieramy ID zestawu
+        set_res = supabase.table("sets").select("id").eq("name", set_name).single().execute()
+        if not set_res.data:
+            return []
+
+        set_id = set_res.data['id']
+        # Pobieramy słowa przypisane do tego ID
+        words_res = supabase.table("words").select("word, clue").eq("set_id", set_id).execute()
+        return words_res.data
+    except Exception as e:
+        print(f"Błąd ładowania słów: {e}")
+        return []
+
+
+def save_word_to_db(word, clue, set_name):
+    """Zapisuje pojedyncze słowo do zestawu."""
+    supabase = get_supabase_client()
+    try:
+        set_res = supabase.table("sets").select("id").eq("name", set_name).single().execute()
+        set_id = set_res.data['id']
+
+        supabase.table("words").insert({
+            "set_id": set_id,
+            "word": word.strip().upper(),
+            "clue": clue.strip()
+        }).execute()
+        return True
+    except Exception as e:
+        st.error(f"Błąd zapisu słowa: {e}")
+        return False
+
+
+def update_set_content_in_db(set_name, new_data):
+    """
+    Synchronizuje zawartość zestawu.
+    Najprostsza metoda: usuń stare i wstaw nowe (w obrębie danego zestawu).
+    """
+    supabase = get_supabase_client()
+    try:
+        # 1. Pobierz ID zestawu
+        set_res = supabase.table("sets").select("id").eq("name", set_name).single().execute()
+        set_id = set_res.data['id']
+
+        # 2. Usuń wszystkie obecne słowa dla tego zestawu
+        supabase.table("words").delete().eq("set_id", set_id).execute()
+
+        # 3. Przygotuj nowe dane do wstawienia
+        to_insert = []
+        for row in new_data:
+            if row.get('word') and row.get('clue'):
+                to_insert.append({
+                    "set_id": set_id,
+                    "word": str(row['word']).strip().upper(),
+                    "clue": str(row['clue']).strip()
+                })
+
+        # 4. Wstaw nowe dane hurtowo
+        if to_insert:
+            supabase.table("words").insert(to_insert).execute()
+
+        return True
+    except Exception as e:
+        st.error(f"Błąd aktualizacji zestawu: {e}")
+        return False
