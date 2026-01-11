@@ -438,11 +438,18 @@ def show_crossword_view(student_mode=False, session_name=None, student_name=None
                         const supabaseKey = "{st.secrets['supabase']['key']}";
                         const sessionId = {st.session_state.get('active_session_id', 0)};
                         const studentName = "{student_name}";
+                        const isAlreadySubmitted = { "true" if st.session_state.get('result_submitted') else "false" };
                         
                         let currentScore = 0;
                         let correctLettersSet = new Set();
                         
                         async function syncRealtimeScore() {{
+                        
+                            if (isAlreadySubmitted || isSolved) {{
+                                console.log("Synchronizacja wstrzymana: wynik już wysłany lub rozwiązano.");
+                                return; 
+                            }}
+                        
                             if (!sessionId || !studentName) return;
 
                             const inputs = document.querySelectorAll('input');
@@ -456,7 +463,9 @@ def show_crossword_view(student_mode=False, session_name=None, student_name=None
                             }});
                             const progressPercent = Math.round((correctCount / totalCells) * 100);
                             const score = (correctCount * 10) - (hintCount * 5);
-                            
+                            if (correctCount === 0 && hintCount === 0) {{
+                                return;
+                            }}
                             try {{
                                 const url = `${{supabaseUrl}}/rest/v1/realtime_scores?on_conflict=session_id,student_name`;
 
