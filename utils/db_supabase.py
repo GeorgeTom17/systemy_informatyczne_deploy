@@ -209,3 +209,16 @@ def save_result_to_db(session_id, student_name, time_taken, hint_count):
     except Exception as e:
         st.error(f"Błąd zapisu: {e}")
         return False
+
+def get_realtime_scores_from_db(session_id):
+    supabase = get_supabase_client()
+    try:
+        response = supabase.table("realtime_scores")\
+            .select("student_name, score, progress_percent, hint_count, last_updated")\
+            .eq("session_id", session_id)\
+            .order("score", desc=True)\
+            .execute()
+        return response.data
+    except Exception as e:
+        st.error(f"Błąd pobierania rankingu live: {e}")
+        return []
