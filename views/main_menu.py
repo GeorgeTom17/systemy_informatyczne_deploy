@@ -7,6 +7,13 @@ from utils.language_select import render_language_selector
 # Importujemy naszego nowego dostawcę słów
 from utils.random_provider import fetch_random_words
 import pandas as pd
+from utils.db_supabase import (
+    get_all_sets_from_db,
+    create_set_in_db,
+    load_words_from_db,
+    save_word_to_db,
+    update_set_content_in_db
+)
 
 
 @st.dialog("🎲 Generator Losowej Krzyżówki")
@@ -57,117 +64,88 @@ def open_random_generator_window():
 
 
 def show_main_menu():
-    st.title("Zarządzanie Zestawami")
+    # --- Sidebar: Wybór zestawu ---
+    with st.sidebar:
+        st.header("Zarządzanie Zestawami")
 
-
-    st.sidebar.header("Twoje Zestawy")
-
-    st.sidebar.subheader("➕ Nowy zestaw")
-    new_set_name = st.sidebar.text_input("Nazwa:", label_visibility="collapsed", placeholder="Nazwa np. Historia...")
-
-    if st.sidebar.button("Utwórz puste"):
-        if new_set_name:
-            create_set(new_set_name)
-            st.session_state.active_set = new_set_name
-            st.success(f"Utworzono: {new_set_name}!")
-            st.rerun()
-
-    st.sidebar.subheader("📂 Wgraj gotowy plik")
-    uploaded_file = st.sidebar.file_uploader("Wybierz plik", type=["json", "csv", "xlsx", "txt"],
-                                             label_visibility="collapsed")
-
-    if uploaded_file is not None:
-        if 'last_uploaded' not in st.session_state or st.session_state.last_uploaded != uploaded_file.name:
-
-            success, message = save_uploaded_set(uploaded_file)
-
-            if success:
-                st.session_state.last_uploaded = uploaded_file.name
-
-                new_name = uploaded_file.name.replace(".json", "")
-                st.session_state.active_set = new_name
-
-                st.session_state.current_view = 'crossword'
-                st.rerun()
-            else:
-                st.sidebar.error(message)
-
-    st.sidebar.markdown("---")
-
-    available_sets = get_all_sets()
-
-    if not available_sets:
-        st.info("Brak zestawów. Wgraj lub stwórz coś w pasku bocznym! 👈")
-        current_set = "default"
-    else:
-        if 'active_set' in st.session_state and st.session_state.active_set in available_sets:
-            index_to_select = available_sets.index(st.session_state.active_set)
-        else:
-            index_to_select = 0
-
-        current_set = st.sidebar.selectbox(
-            "Wybierz zestaw do edycji:",
-            available_sets,
-            index=index_to_select
-        )
-        st.session_state.active_set = current_set
-
-    # --- Główna część ---
-    st.header(f"Edytujesz zestaw: {current_set.upper()}")
-
-    col1, col2 = st.columns(2)
-
-    with col1:
-        st.subheader("Dodaj hasło ręcznie")
-        with st.form("add_word_form", clear_on_submit=True):
-            new_word = st.text_input("Słowo")
-            new_clue = st.text_input("Podpowiedź")
-            submitted = st.form_submit_button("Zapisz hasło")
-
-            if submitted:
-                if new_word and new_clue:
-                    save_word(new_word, new_clue, current_set)
-                    st.success(f"Dodano do '{current_set}'")
+        # Tworzenie nowego zestawu w DB
+        new_set = st.text_input("Nowy zestaw:")
+        if st.button("Utwórz zestaw"):
+            if new_set:
+                if create_set_in_db(new_set):
+                    st.success(f"Utworzono {new_set}")
                     st.rerun()
-                else:
-                    st.error("Wypełnij oba pola.")
 
-    with col2:
-        st.subheader("Podgląd zawartości")
-        words_data = load_words(current_set)
-        df = pd.DataFrame(words_data)
-        if df.empty:
-            df = pd.DataFrame(columns=["word", "clue"])
-        st.info("Kliknij w komórkę, aby edytować. Zaznacz wiersz i naciśnij Delete, aby usunąć.")
-        edited_df = st.data_editor(
-            df,
-            column_config={
-                "word": st.column_config.TextColumn(
-                    "Słowo",
-                    help="Hasło do krzyżówki (będzie zamienione na wielkie litery)",
-                    max_chars=20,
-                    required=True
-                ),
-                "clue": st.column_config.TextColumn(
-                    "Podpowiedź / Definicja",
-                    help="Opis wyświetlany graczowi",
-                    required=True
-                )
-            },
-            num_rows="dynamic",
-            use_container_width=True,
-            key=f"editor_{current_set}",
-            hide_index=True
-        )
-        col_save, col_info = st.columns([1, 4])
-        with col_save:
-            if st.button("Zapisz zmiany w tabeli", type="primary"):
-                new_data = edited_df.to_dict('records')
-                if update_set_content(current_set, new_data):
-                    st.toast("Zestaw został zaktualizowany!")
-                else:
-                    st.error("Wystąpił błąd podczas zapisu.")
-        st.divider()
+        sets = get_all_sets_from_db()
+        if sets:
+            current_set = st.selectbox("Wybierz zestaw do edycji:", sets)
+        else:
+            st.warning("Brak zestawów w bazie.")
+            current_set = None
+
+    if current_set:
+        st.header(f"Edytujesz zestaw: {current_set.upper()}")
+
+        col1, col2 = st.columns(2)
+
+        with col1:
+            st.subheader("Dodaj hasło ręcznie")
+            with st.form("add_word_form", clear_on_submit=True):
+                new_word = st.text_input("Słowo")
+                new_clue = st.text_input("Podpowiedź")
+                submitted = st.form_submit_button("Zapisz hasło")
+
+                if submitted:
+                    if new_word and new_clue:
+                        # Zmienione na save_word_to_db
+                        if save_word_to_db(new_word, new_clue, current_set):
+                            st.success(f"Dodano do '{current_set}'")
+                            st.rerun()
+                    else:
+                        st.error("Wypełnij oba pola.")
+
+        with col2:
+            st.subheader("Podgląd zawartości")
+            # Zmienione na load_words_from_db
+            words_data = load_words_from_db(current_set)
+            df = pd.DataFrame(words_data)
+
+            if df.empty:
+                df = pd.DataFrame(columns=["word", "clue"])
+
+            st.info("Kliknij w komórkę, aby edytować. Zaznacz wiersz i naciśnij Delete, aby usunąć.")
+
+            edited_df = st.data_editor(
+                df,
+                column_config={
+                    "word": st.column_config.TextColumn(
+                        "Słowo",
+                        help="Hasło do krzyżówki",
+                        max_chars=20,
+                        required=True
+                    ),
+                    "clue": st.column_config.TextColumn(
+                        "Podpowiedź / Definicja",
+                        help="Opis wyświetlany graczowi",
+                        required=True
+                    )
+                },
+                num_rows="dynamic",
+                use_container_width=True,
+                key=f"editor_{current_set}",
+                hide_index=True
+            )
+
+            col_save, col_info = st.columns([1, 4])
+            with col_save:
+                if st.button("Zapisz zmiany w tabeli", type="primary"):
+                    new_data = edited_df.to_dict('records')
+                    # Zmienione na update_set_content_in_db
+                    if update_set_content_in_db(current_set, new_data):
+                        st.toast("Zestaw został zaktualizowany!")
+                    else:
+                        st.error("Wystąpił błąd podczas zapisu.")
+            st.divider()
 
     st.markdown("---")
     st.subheader("Import Krzyżówki z Kodu")
