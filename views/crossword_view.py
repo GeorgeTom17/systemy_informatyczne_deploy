@@ -61,13 +61,6 @@ def render_student_rank_badge(s_id, s_name):
 def show_crossword_view(student_mode=False, session_name=None, student_name=None):
     if not student_mode:
         st.title("Generator Krzyżówek")
-    else:
-        display_name = session_name if session_name else "Zadanie"
-        st.title(f"{display_name}")
-        s_id = st.session_state.get('active_session_id')
-        if s_id and student_name:
-            render_student_rank_badge(s_id, student_name)
-        st.caption(f"Powodzenia, **{student_name}**! Twoje wyniki są aktualizowane na żywo.")
 
     # ==================================================
     # 1. LOGIKA ZARZĄDZANIA (TYLKO DLA NAUCZYCIELA)
@@ -162,105 +155,13 @@ def show_crossword_view(student_mode=False, session_name=None, student_name=None
     if student_mode:
         st.markdown("---")
         st.subheader("Rozwiązane?")
-        is_submitted = st.session_state.get('result_submitted', False)
-        is_feedback_sent = st.session_state.get('feedback_sent', False)
-        if not is_submitted:
-            st.info("Gdy skończysz, wpisz swój czas poniżej:")
-            with st.form("submit_result_form"):
-                c_time, c_btn = st.columns([2, 1])
-                with c_time:
-                    final_time = st.text_input("Czas (mm:ss):", placeholder="np. 02:45")
-                with c_btn:
-                    submitted = st.form_submit_button("Wyślij wynik", type="primary")
-
-                if submitted:
-                    if not final_time:
-                        st.error("Wpisz czas!")
-                    else:
-                        s_id = st.session_state.get('active_session_id')
-                        supabase = get_supabase_client()
-                        s_id = st.session_state.get('active_session_id')
-                        supabase = get_supabase_client()  # zaimportuj klienta
-                        live_data = supabase.table("realtime_scores") \
-                            .select("score, hint_count") \
-                            .eq("session_id", s_id) \
-                            .eq("student_name", student_name) \
-                            .single().execute()
-                        actual_hints = 0
-                        if live_data.data:
-                            actual_hints = live_data.data.get('hint_count', 0)
-                        success = save_result_to_db(
-                            session_id=s_id,
-                            student_name=student_name,
-                            time_taken=final_time,
-                            hint_count=actual_hints
-                        )
-                        if success:
-                            st.session_state.result_submitted = True
-                            st.rerun()
-                        else:
-                            st.error("Błąd krytyczny: Brak powiązania z sesją. Odśwież stronę z kodu QR.")
-        else:
-            st.success("Wynik wysłany! Możesz zamknąć stronę.")
-
-            if not is_feedback_sent:
-                st.markdown("---")
-                st.subheader("Pomóż nam ulepszyć grę!")
-                st.write("Zaznacz słowa, które sprawiły Ci największą trudność:")
-
-                words_in_puzzle = []
-                if 'crossword_data' in st.session_state:
-                    grid = st.session_state.crossword_data[0]
-                    rows, cols = grid.shape
-                    temp_words = set()
-                    for r in range(rows):
-                        current = ""
-                        for c in range(cols):
-                            cell = grid[r, c]
-                            if isinstance(cell, str):
-                                current += cell
-                            else:
-                                if len(current) > 1: temp_words.add(current)
-                                current = ""
-                        if len(current) > 1: temp_words.add(current)
-                    for c in range(cols):
-                        current = ""
-                        for r in range(rows):
-                            cell = grid[r, c]
-                            if isinstance(cell, str):
-                                current += cell
-                            else:
-                                if len(current) > 1: temp_words.add(current)
-                                current = ""
-                        if len(current) > 1: temp_words.add(current)
-
-                    words_in_puzzle = sorted(list(temp_words))
-
-                with st.form("learning_feedback"):
-                    hard_words = st.multiselect(
-                        "Wybierz trudne słowa:",
-                        options=words_in_puzzle
-                    )
-
-                    if st.form_submit_button("Wyślij opinię"):
-                        feedback_data = []
-                        current_lang = st.session_state.get('crossword_language', 'Polski')
-
-                        for w in hard_words:
-                            feedback_data.append((w, "User Feedback", current_lang, "TRUDNE"))
-
-                        easy_words = set(words_in_puzzle) - set(hard_words)
-                        for w in easy_words:
-                            feedback_data.append((w, "User Feedback", current_lang, "ŁATWE"))
-
-                        save_student_feedback(feedback_data)
-
-                        st.session_state.feedback_sent = True
-                        st.balloons()
-                        st.rerun()
-
-            else:
-                st.info("Dziękujemy za przesłanie opinii!")
+        if student_mode:
+            display_name = session_name if session_name else "Zadanie"
+            st.title(f"{display_name}")
+            s_id = st.session_state.get('active_session_id')
+            if s_id and student_name:
+                render_student_rank_badge(s_id, student_name)
+            st.caption(f"Powodzenia, **{student_name}**! Twoje wyniki są aktualizowane na żywo.")
 
     # ==================================================
     # 3. RENDEROWANIE
