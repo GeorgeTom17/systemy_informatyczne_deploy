@@ -9,7 +9,7 @@ from utils.db_supabase import (
 from utils.qr_manager import generate_qr_image
 
 
-@st.fragment(run_every=1)
+@st.fragment(run_every=3)
 def render_live_ranking_fragment(s_id):
     live_scores = get_realtime_scores_from_db(s_id)
 

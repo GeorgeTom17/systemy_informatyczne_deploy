@@ -4,7 +4,7 @@ from views.crossword_view import show_crossword_view
 from views.sessions_view import show_sessions_view
 from utils.export_code_manager import decode_crossword
 from views.ml_view import show_ml_view
-from utils.db_supabase import test_supabase_connection, get_session_from_db
+from utils.db_supabase import get_session_from_db
 
 st.set_page_config(page_title="krzyżGŁówkuj", layout="wide", page_icon="🧩")
 
@@ -98,18 +98,6 @@ else:
         if st.button("Statystyki", use_container_width=True):
             st.session_state.current_view = 'stats'
 
-        st.markdown("---")
-        st.subheader("🛠️ Test Połączenia Supabase")
-        if st.button("Uruchom test połączenia"):
-            with st.spinner("Próbuję połączyć się z serwerem supabase..."):
-                success, message = test_supabase_connection()
-                if success:
-                    st.success(message)
-                    st.balloons()
-                else:
-                    st.error("❌ Połączenie nieudane")
-                    st.code(message, language="text")
-
     with main_col:
         if st.session_state.current_view == 'main_menu':
             show_main_menu()
@@ -117,7 +105,5 @@ else:
             show_crossword_view(student_mode=False)
         elif st.session_state.current_view == 'sessions':
             show_sessions_view()
-        elif st.session_state.current_view == 'stats':
-            st.header("Statystyki")
         elif st.session_state.current_view == 'ml_training':
             show_ml_view()

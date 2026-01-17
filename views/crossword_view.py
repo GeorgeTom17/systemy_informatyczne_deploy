@@ -31,7 +31,7 @@ SPECIAL_CHARACTERS = {
 
 def show_crossword_view(student_mode=False, session_name=None, student_name=None):
     if not student_mode:
-        st.title("🧩 Generator Krzyżówek")
+        st.title("Generator Krzyżówek")
     else:
         display_name = session_name if session_name else "Zadanie"
         user_display = student_name if student_name else "Uczniu"
@@ -411,7 +411,7 @@ def show_crossword_view(student_mode=False, session_name=None, student_name=None
                     <div class="controls-bar">
                         <div class="timer-display" id="timer">00:00</div>
                         <button class="btn check-btn" onclick="checkAnswers()">Sprawdź</button>
-                        <button class="btn hint-btn" onclick="revealLetter()">💡 Podpowiedź</button>
+                        <button class="btn hint-btn" onclick="revealLetter()">Podpowiedź</button>
                         <span class="hint-counter" id="hint-count">Użyto: 0</span>
                     </div>
 
@@ -694,40 +694,31 @@ def show_crossword_view(student_mode=False, session_name=None, student_name=None
                 </body>
                 </html>
                 """
+        c1, c2, c3 = st.columns(3)
+        with c1 :
+            iframe_height = (ROWS * 37) + 120
+            components.html(full_html, height=iframe_height, scrolling=True)
+            if not student_mode and 'crossword_data' in st.session_state:
+                with col_export:
+                    with st.popover("Udostępnij Sesję (QR)", use_container_width=True):
+                        st.subheader("Utwórz sesję w bazie danych")
+                        new_session_name = st.text_input("Nazwa sesji:", placeholder="np. Lekcja 1")
+                        if st.button("Generuj kod QR", type="primary"):
+                            if not new_session_name:
+                                st.error("Podaj nazwę!")
+                            else:
+                                raw_code = encode_crossword(st.session_state.crossword_data)
+                                session_id = save_session_to_db(new_session_name, raw_code)
+                                if session_id:
+                                    full_link = f"{APP_BASE_URL}/?session_id={session_id}"
+                                    st.image(generate_qr_image(full_link), use_container_width=True)
+                                    st.code(full_link)
 
-        iframe_height = (ROWS * 37) + 120
-        components.html(full_html, height=iframe_height, scrolling=True)
-        if not student_mode and 'crossword_data' in st.session_state:
-            # Ten fragment już poprawnie korzysta z save_session_to_db,
-            # więc zostawiamy go jako główną metodę udostępniania
-            with col_export:
-                with st.popover("Udostępnij Sesję (QR)", use_container_width=True):
-                    st.subheader("Utwórz sesję w bazie danych")
-                    new_session_name = st.text_input("Nazwa sesji:", placeholder="np. Lekcja 1")
-                    if st.button("Generuj kod QR", type="primary"):
-                        if not new_session_name:
-                            st.error("Podaj nazwę!")
-                        else:
-                            raw_code = encode_crossword(st.session_state.crossword_data)
-                            session_id = save_session_to_db(new_session_name, raw_code)
-                            if session_id:
-                                full_link = f"{APP_BASE_URL}/?session_id={session_id}"
-                                st.image(generate_qr_image(full_link), use_container_width=True)
-                                st.code(full_link)
-
-            # Sekcja statystyk AI
-            if 'difficulty_stats' in st.session_state:
-                st.subheader("Analiza Trudności (wg AI)")
-                # ... (wyświetlanie metryk metryk) ...
-
-            # Wyświetlanie haseł pod krzyżówką
-        st.markdown("---")
-        c1, c2 = st.columns(2)
-    with c1:
-        st.subheader("POZIOMO")
-        if clues_across:
-            for x in clues_across: st.text(x)
-    with c2:
-        st.subheader("PIONOWO")
-        if clues_down:
-            for x in clues_down: st.text(x)
+        with c2:
+            st.subheader("POZIOMO")
+            if clues_across:
+                for x in clues_across: st.text(x)
+        with c3:
+            st.subheader("PIONOWO")
+            if clues_down:
+                for x in clues_down: st.text(x)
