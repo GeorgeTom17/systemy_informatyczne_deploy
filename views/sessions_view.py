@@ -30,6 +30,14 @@ def render_live_ranking_fragment(s_id):
                 st.progress(progress_val, text=f"{player['progress_percent']}%")
 
 
+@st.dialog("🔥 RANKING LIVE - TOP WYNIKI", width="large")
+def show_leaderboard_modal(s_id):
+    """Wyświetla ranking w dużym oknie typu modal."""
+    st.write("Wyniki wszystkich aktywnych graczy w czasie rzeczywistym.")
+    render_live_ranking_fragment(s_id)
+    if st.button("Zamknij widok"):
+        st.rerun()
+
 def show_sessions_view():
     st.title("Twoje Sesje i Wyniki")
 
@@ -65,5 +73,10 @@ def show_sessions_view():
                     st.info("Nikt jeszcze nie ukończył krzyżówki.")
 
             with tab_live:
-                st.subheader("Postęp uczniów w czasie rzeczywistym")
+                col_title, col_btn = st.columns([3, 1])
+                with col_title:
+                    st.subheader("Postęp uczniów na żywo")
+                with col_btn:
+                    if st.button("Widok Tablicy", key=f"btn_modal_{s_id}", use_container_width=True):
+                        show_leaderboard_modal(s_id)
                 render_live_ranking_fragment(s_id)
