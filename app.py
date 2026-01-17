@@ -94,10 +94,6 @@ else:
         if st.button("Trening AI", use_container_width=True):
             st.session_state.current_view = 'ml_training'
 
-        st.markdown("---")
-        if st.button("Statystyki", use_container_width=True):
-            st.session_state.current_view = 'stats'
-
     with main_col:
         if st.session_state.current_view == 'main_menu':
             show_main_menu()

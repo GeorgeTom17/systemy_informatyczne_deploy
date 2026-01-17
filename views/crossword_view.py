@@ -438,7 +438,7 @@ def show_crossword_view(student_mode=False, session_name=None, student_name=None
                         const supabaseKey = "{st.secrets['supabase']['key']}";
                         const sessionId = {st.session_state.get('active_session_id', 0)};
                         const studentName = "{student_name}";
-                        const isAlreadySubmitted = { "true" if st.session_state.get('result_submitted') else "false" };
+                        const isAlreadySubmitted = {"true" if st.session_state.get('result_submitted') else "false"};
                         
                         let currentScore = 0;
                         let correctLettersSet = new Set();
@@ -694,31 +694,30 @@ def show_crossword_view(student_mode=False, session_name=None, student_name=None
                 </body>
                 </html>
                 """
-        c1, c2, c3 = st.columns(3)
-        with c1 :
-            iframe_height = (ROWS * 37) + 120
-            components.html(full_html, height=iframe_height, scrolling=True)
-            if not student_mode and 'crossword_data' in st.session_state:
-                with col_export:
-                    with st.popover("Udostępnij Sesję (QR)", use_container_width=True):
-                        st.subheader("Utwórz sesję w bazie danych")
-                        new_session_name = st.text_input("Nazwa sesji:", placeholder="np. Lekcja 1")
-                        if st.button("Generuj kod QR", type="primary"):
-                            if not new_session_name:
-                                st.error("Podaj nazwę!")
-                            else:
-                                raw_code = encode_crossword(st.session_state.crossword_data)
-                                session_id = save_session_to_db(new_session_name, raw_code)
-                                if session_id:
-                                    full_link = f"{APP_BASE_URL}/?session_id={session_id}"
-                                    st.image(generate_qr_image(full_link), use_container_width=True)
-                                    st.code(full_link)
+        c1, c2 = st.columns(2)
+        iframe_height = (ROWS * 37) + 120
+        components.html(full_html, height=iframe_height, scrolling=True)
+        if not student_mode and 'crossword_data' in st.session_state:
+            with col_export:
+                with st.popover("Udostępnij Sesję (QR)", use_container_width=True):
+                    st.subheader("Utwórz sesję w bazie danych")
+                    new_session_name = st.text_input("Nazwa sesji:", placeholder="np. Lekcja 1")
+                    if st.button("Generuj kod QR", type="primary"):
+                        if not new_session_name:
+                            st.error("Podaj nazwę!")
+                        else:
+                            raw_code = encode_crossword(st.session_state.crossword_data)
+                            session_id = save_session_to_db(new_session_name, raw_code)
+                            if session_id:
+                                full_link = f"{APP_BASE_URL}/?session_id={session_id}"
+                                st.image(generate_qr_image(full_link), use_container_width=True)
+                                st.code(full_link)
 
-        with c2:
+        with c1:
             st.subheader("POZIOMO")
             if clues_across:
                 for x in clues_across: st.text(x)
-        with c3:
+        with c2:
             st.subheader("PIONOWO")
             if clues_down:
                 for x in clues_down: st.text(x)
