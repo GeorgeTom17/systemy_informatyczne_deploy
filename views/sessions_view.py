@@ -33,6 +33,19 @@ def render_live_ranking_fragment(s_id):
 @st.dialog("🔥 RANKING LIVE - TOP WYNIKI", width="large")
 def show_leaderboard_modal(s_id):
     """Wyświetla ranking w dużym oknie typu modal."""
+    st.markdown(
+        """
+        <style>
+            div[data-testid="stDialog"] div[role="dialog"] {
+                width: 95vw !important;
+                max-width: 95vw !important;
+                height: 80vh !important;
+            }
+            div[data-testid="stDialog"] h1 { font-size: 3rem !important; }
+        </style>
+        """,
+        unsafe_allow_html=True
+    )
     st.write("Wyniki wszystkich aktywnych graczy w czasie rzeczywistym.")
     render_live_ranking_fragment(s_id)
     if st.button("Zamknij widok"):
