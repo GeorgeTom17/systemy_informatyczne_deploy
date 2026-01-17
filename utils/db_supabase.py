@@ -222,3 +222,25 @@ def get_realtime_scores_from_db(session_id):
     except Exception as e:
         st.error(f"Błąd pobierania rankingu live: {e}")
         return []
+
+def get_student_rank(session_id, student_name):
+    """Oblicza aktualną pozycję ucznia w rankingu sesji."""
+    supabase = get_supabase_client()
+    try:
+        response = supabase.table("realtime_scores") \
+            .select("student_name, score") \
+            .eq("session_id", session_id) \
+            .order("score", desc=True) \
+            .execute()
+
+        scores = response.data
+        if not scores:
+            return None
+
+        for index, record in enumerate(scores):
+            if record['student_name'] == student_name:
+                return index + 1
+
+        return None
+    except Exception as e:
+        return None

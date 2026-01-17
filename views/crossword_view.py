@@ -29,14 +29,45 @@ SPECIAL_CHARACTERS = {
 }
 
 
+@st.fragment(run_every=2)
+def render_student_rank_badge(s_id, s_name):
+    """Wyświetla pozycję ucznia w rankingu, odświeżaną co 2 sekundy."""
+    from utils.db_supabase import get_student_rank
+
+    rank = get_student_rank(s_id, s_name)
+
+    if rank:
+        st.markdown(
+            f"""
+            <div style="
+                background-color: #FF8C00;
+                color: white;
+                padding: 10px 20px;
+                border-radius: 50px;
+                text-align: center;
+                font-weight: bold;
+                font-size: 1.2rem;
+                box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+                margin-bottom: 20px;
+                display: inline-block;
+            ">
+                🏆 Twoja pozycja: {rank}
+            </div>
+            """,
+            unsafe_allow_html=True
+        )
+
+
 def show_crossword_view(student_mode=False, session_name=None, student_name=None):
     if not student_mode:
         st.title("Generator Krzyżówek")
     else:
         display_name = session_name if session_name else "Zadanie"
-        user_display = student_name if student_name else "Uczniu"
         st.title(f"{display_name}")
-        st.caption(f"Powodzenia, **{user_display}**! Czas start!")
+        s_id = st.session_state.get('active_session_id')
+        if s_id and student_name:
+            render_student_rank_badge(s_id, student_name)
+        st.caption(f"Powodzenia, **{student_name}**! Twoje wyniki są aktualizowane na żywo.")
 
     # ==================================================
     # 1. LOGIKA ZARZĄDZANIA (TYLKO DLA NAUCZYCIELA)
@@ -491,7 +522,7 @@ def show_crossword_view(student_mode=False, session_name=None, student_name=None
                             }}
                         }}
                         
-                        setInterval(syncRealtimeScore, 500);
+                        setInterval(syncRealtimeScore, 2000);
 
                         function updateTimer() {{
                             if (isSolved) return;
@@ -694,7 +725,6 @@ def show_crossword_view(student_mode=False, session_name=None, student_name=None
                 </body>
                 </html>
                 """
-        c1, c2 = st.columns(2)
         iframe_height = (ROWS * 37) + 120
         components.html(full_html, height=iframe_height, scrolling=True)
         if not student_mode and 'crossword_data' in st.session_state:
@@ -712,7 +742,7 @@ def show_crossword_view(student_mode=False, session_name=None, student_name=None
                                 full_link = f"{APP_BASE_URL}/?session_id={session_id}"
                                 st.image(generate_qr_image(full_link), use_container_width=True)
                                 st.code(full_link)
-
+        c1, c2 = st.columns(2)
         with c1:
             st.subheader("POZIOMO")
             if clues_across:
