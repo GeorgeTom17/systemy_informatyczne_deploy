@@ -124,6 +124,12 @@ def show_main_menu():
             current_set = None
 
     if current_set:
+
+        if 'last_set' not in st.session_state or st.session_state.last_set != current_set:
+            words_data = load_words_from_db(current_set)
+            st.session_state.table_data = words_data if words_data else []
+            st.session_state.last_set = current_set
+
         st.header(f"Edytujesz zestaw: {current_set.upper()}")
         st.subheader("Podgląd zawartości")
         set_meta = get_set_metadata(current_set)
@@ -183,31 +189,34 @@ def show_main_menu():
 
                 if results:
                     st.write(f"Sugerowane definicje w języku **{tgt_lang_name}**:")
-                    for res in results:
-                        # Wyświetlamy część mowy i definicję
-                        label = "Rzeczownik" if res['pos'] == 'noun' else "Czasownik" if res[
-                                                                                             'pos'] == 'verb' else "Przymiotnik" if \
-                        res['pos'] == 'adjective' else res['pos']
+                    for i, res in enumerate(results):
+                        col_text, col_btn = st.columns([4, 1])
 
-                        st.markdown(f"**[{label}]**")
-                        st.code(res['text'])  # Blok kodu ułatwia kopiowanie
-                else:
-                    st.warning("Nie udało się wygenerować automatycznych definicji dla tego słowa.")
+                        with col_text:
+                            label = res['pos']  # np. noun, verb
+                            st.markdown(f"**[{label}]** {res['text']}")
+
+                        with col_btn:
+                            # PRZYCISK DODAWANIA
+                            if st.button("➕ Dodaj", key=f"add_sug_{i}"):
+                                # Dodajemy nowy wiersz do stanu sesji
+                                new_row = {
+                                    "word": word_to_check.upper(),
+                                    "clue": res['text']
+                                }
+                                st.session_state.table_data.append(new_row)
+                                st.success("Dodano do tabeli!")
+                                st.rerun()  # Odświeżamy, by editor zobaczył nowy wiersz
+                    else:
+                        st.warning("Brak propozycji.")
+
+        st.divider()
         st.info("Kliknij w komórkę, aby edytować. Zaznacz wiersz i naciśnij Delete, aby usunąć.")
         edited_df = st.data_editor(
-            df,
+            st.session_state.table_data,
             column_config={
-                "word": st.column_config.TextColumn(
-                    "Słowo",
-                    help="Hasło do krzyżówki",
-                    max_chars=20,
-                    required=True
-                ),
-                "clue": st.column_config.TextColumn(
-                    "Podpowiedź / Definicja",
-                    help="Opis wyświetlany graczowi",
-                    required=True
-                )
+                "word": st.column_config.TextColumn("Słowo", required=True),
+                "clue": st.column_config.TextColumn("Podpowiedź / Definicja", required=True)
             },
             num_rows="dynamic",
             use_container_width=True,
@@ -221,6 +230,7 @@ def show_main_menu():
                 new_data = edited_df.to_dict('records')
                 # Teraz source_lang_code i target_lang_code są już zdefiniowane!
                 if update_set_content_in_db(current_set, new_data, source_lang_code, target_lang_code):
+                    st.session_state.table_data = new_data  # Aktualizujemy stan lokalny
                     st.toast("Zestaw oraz języki zostały zaktualizowane!")
                 else:
                     st.error("Wystąpił błąd podczas zapisu.")
