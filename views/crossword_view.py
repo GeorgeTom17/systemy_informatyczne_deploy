@@ -380,14 +380,21 @@ def show_crossword_view(student_mode=False, session_name=None, student_name=None
                         background-color: #fcf8e3; /* Lekko żółte tło */
                     }}
                     .input-cell input.highlight-word {{
-                        background-color: #e0f7fa !important; /* Bardzo jasny niebieski */
+                        background-color: #90caf9 !important; /* Jasny niebieski (Blue 200) */
                         transition: background-color 0.2s;
                     }}
                     
-                    /* Intensywniejszy kolor dla konkretnego pola, w którym jest kursor */
+                    /* Intensywny kolor dla komórki, w której jest kursor */
                     .input-cell input:focus {{
-                        background-color: #b2ebf2 !important; 
-                        outline: 2px solid #00acc1;
+                        background-color: #1e88e5 !important; /* Mocny niebieski (Blue 600) */
+                        color: white !important;             /* Biała czcionka dla kontrastu */
+                        outline: 3px solid #0d47a1;          /* Bardzo ciemna ramka */
+                        caret-color: white;                  /* Kolor migającego kursora */
+                    }}
+                    
+                    /* Zachowanie czytelności liter w podświetlonym słowie */
+                    .input-cell input.highlight-word:not(:focus) {{
+                        color: #0d47a1 !important;           /* Ciemniejszy tekst dla słowa */
                     }}
                 </style>
                 </head>
@@ -698,8 +705,22 @@ def show_crossword_view(student_mode=False, session_name=None, student_name=None
                         
                             // --- NOWOŚĆ: Obsługa spacji jako skoku do następnego słowa ---
                             if (e.key === ' ' || e.code === 'Space') {{
-                                e.preventDefault(); // Zapobiegaj wpisaniu znaku spacji do inputa
-                                checkAndJumpToNextWord(); // Wywołaj funkcję przeskoku
+                                e.preventDefault(); // Blokujemy wpisanie znaku
+                                let nextR = r;
+                                let nextC = c;
+                                
+                                if (currentDirection === 'across') nextC++;
+                                else nextR++;
+                        
+                                const target = document.getElementById("input-" + nextR + "-" + nextC);
+                                
+                                if (target) {{
+                                    // Jeśli istnieje następna komórka w tym samym kierunku - idź do niej
+                                    target.focus();
+                                }} else {{
+                                    // Jeśli to był koniec słowa - przeskocz do następnego słowa na liście
+                                    checkAndJumpToNextWord();
+                                }}
                                 return;
                             }}
                         
