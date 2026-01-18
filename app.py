@@ -5,6 +5,7 @@ from views.sessions_view import show_sessions_view
 from utils.export_code_manager import decode_crossword
 from views.ml_view import show_ml_view
 from utils.db_supabase import get_session_from_db
+from utils.db_supabase import get_supabase_client
 
 st.set_page_config(page_title="krzyżGŁówkuj", layout="wide", page_icon="🧩")
 
@@ -49,25 +50,63 @@ elif incoming_data:
 if 'current_view' not in st.session_state:
     st.session_state.current_view = 'main_menu'
 
-if st.session_state.current_view == 'student_mode' and 'student_name' not in st.session_state:
+if st.session_state.current_view == 'student_mode':
+    s_id = st.session_state.get('active_session_id')
+    if 'student_name' not in st.session_state:
+        st.title("Witaj w Krzyżówce!")
+        st.info(f"Sesja: {st.session_state.get('session_name', 'Zadanie')}")
 
-    st.title("Witaj w Krzyżówce!")
-    st.info(f"Sesja: {st.session_state.get('session_name', 'Zadanie')}")
+        with st.form("student_login"):
+            name_input = st.text_input("Podaj swoje imię lub nick:")
+            if st.form_submit_button("Dołącz do poczekalni"):
+                if name_input.strip():
+                    st.session_state.student_name = name_input.strip()
+                    supabase = get_supabase_client()
+                    supabase.table("realtime_scores").upsert({
+                        "session_id": s_id,
+                        "student_name": name_input.strip(),
+                        "score": 0,
+                        "progress_percent": 0
+                    }, on_conflict="session_id,student_name").execute()
+                    st.rerun()
+                else:
+                    st.error("Musisz podać imię!")
+    else:
+        @st.fragment(run_every=2)
+        def student_status_checker(session_id, student_name):
+            from utils.db_supabase import get_session_status
+            status = get_session_status(session_id)
 
-    with st.form("student_login"):
-        name_input = st.text_input("Podaj swoje imię lub nick:")
-        if st.form_submit_button("Rozpocznij Rozwiązywanie"):
-            if name_input.strip():
-                st.session_state.student_name = name_input.strip()
-                st.rerun()
+            if status == 'waiting':
+                st.title("Poczekalnia")
+                st.success(f"Witaj, **{student_name}**! Jesteś na liście.")
+                st.info("Zaczekaj, aż nauczyciel rozpocznie grę...")
+                st.divider()
+                st.caption("Status: Oczekiwanie na start...")
+
+            elif status == 'finished':
+                st.error("Ta sesja została zakończona.")
+                if st.button("Wróć do menu"):
+                    st.session_state.current_view = 'main_menu'
+                    st.rerun()
+                st.stop()
+
             else:
-                st.error("Musisz podać imię!")
+                # Status to 'active' - przechodzimy do krzyżówki
+                st.session_state.waiting_room_passed = True
+                st.rerun()
 
-elif st.session_state.current_view == 'student_mode':
-    session_name = st.session_state.get('session_name', 'Krzyżówka')
-    student_name = st.session_state.get('student_name', 'Uczeń')
 
-    show_crossword_view(student_mode=True, session_name=session_name, student_name=student_name)
+        # Jeśli gra się jeszcze nie zaczęła, pokazujemy poczekalnię
+        if not st.session_state.get('waiting_room_passed'):
+            student_status_checker(s_id, st.session_state.student_name)
+        else:
+            # 3. FINALNIE: Widok krzyżówki dla ucznia
+            show_crossword_view(
+                student_mode=True,
+                session_name=st.session_state.get('session_name'),
+                student_name=st.session_state.student_name
+            )
 
 else:
     menu_col, main_col = st.columns([1, 4])

@@ -244,3 +244,22 @@ def get_student_rank(session_id, student_name):
         return None
     except Exception as e:
         return None
+
+def update_session_status(session_id, status):
+    """Aktualizuje status sesji (waiting, active, finished)."""
+    supabase = get_supabase_client()
+    try:
+        supabase.table("sessions").update({"status": status}).eq("id", session_id).execute()
+        return True
+    except Exception as e:
+        st.error(f"Błąd zmiany statusu: {e}")
+        return False
+
+def get_session_status(session_id):
+    """Pobiera aktualny status sesji."""
+    supabase = get_supabase_client()
+    try:
+        response = supabase.table("sessions").select("status").eq("id", session_id).single().execute()
+        return response.data["status"] if response.data else "waiting"
+    except:
+        return "waiting"

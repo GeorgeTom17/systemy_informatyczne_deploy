@@ -153,15 +153,12 @@ def show_crossword_view(student_mode=False, session_name=None, student_name=None
             return
 
     if student_mode:
-        st.markdown("---")
-        st.subheader("Rozwiązane?")
-        if student_mode:
-            display_name = session_name if session_name else "Zadanie"
-            st.title(f"{display_name}")
-            s_id = st.session_state.get('active_session_id')
-            if s_id and student_name:
-                render_student_rank_badge(s_id, student_name)
-            st.caption(f"Powodzenia, **{student_name}**! Twoje wyniki są aktualizowane na żywo.")
+        display_name = session_name if session_name else "Zadanie"
+        st.title(f"{display_name}")
+        s_id = st.session_state.get('active_session_id')
+        if s_id and student_name:
+            render_student_rank_badge(s_id, student_name)
+        st.caption(f"Powodzenia, **{student_name}**! Twoje wyniki są aktualizowane na żywo.")
 
     # ==================================================
     # 3. RENDEROWANIE

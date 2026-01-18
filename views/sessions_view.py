@@ -86,6 +86,31 @@ def show_sessions_view():
                     st.info("Nikt jeszcze nie ukończył krzyżówki.")
 
             with tab_live:
+                col_status, col_actions = st.columns([1, 1])
+                from utils.db_supabase import get_session_status, update_session_status
+                current_status = get_session_status(s_id)
+                with col_status:
+                    if current_status == 'waiting':
+                        st.info("Stan: Oczekiwanie")
+                    elif current_status == 'active':
+                        st.success("Stan: Aktywna")
+                    else:
+                        st.error("Stan: Zakończona")
+
+                with col_actions:
+                    if current_status == 'waiting':
+                        if st.button("ROZPOCZNIJ", key=f"start_{s_id}", type="primary", use_container_width=True):
+                            update_session_status(s_id, 'active')
+                            st.rerun()
+                    elif current_status == 'active':
+                        if st.button("ZAKOŃCZ", key=f"stop_{s_id}", type="secondary", use_container_width=True):
+                            update_session_status(s_id, 'finished')
+                            st.rerun()
+                    else:
+                        if st.button("Resetuj do Poczekalni", key=f"reset_{s_id}", use_container_width=True):
+                            update_session_status(s_id, 'waiting')
+                            st.rerun()
+                st.divider()
                 col_title, col_btn = st.columns([3, 1])
                 with col_title:
                     st.subheader("Postęp uczniów na żywo")
