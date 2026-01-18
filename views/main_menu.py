@@ -58,30 +58,46 @@ def open_random_generator_window():
         # Nazwa zestawu sugerująca dużą pulę
         new_set_name = f"Pakiet: {selected_category} ({datetime.now().strftime('%H:%M')})"
 
-        with st.spinner(f"Buduję bazę 50 słów dla kategorii {selected_category}..."):
-            # 1. Pobieramy DUŻĄ listę słów z ConceptNet (limit=100 w API, żeby mieć z czego wybierać)
+        with st.spinner(f"Szukam słówek dla kategorii {selected_category}..."):
             all_possible_words = get_words_from_conceptnet(selected_category, src_code)
-            random.shuffle(all_possible_words)  # Mieszamy listę przed wyborem
-            chosen_pool = all_possible_words[:50]
 
-            # Wybieramy 50 słów do zapisu w bazie
-            pool_size = min(len(all_possible_words), 50)
-            chosen_pool = random.sample(all_possible_words, pool_size)
+            if not all_possible_words:
+                st.error(
+                    f"ConceptNet nie zwrócił żadnych słów dla kategorii '{selected_category}' w języku '{src_code}'.")
+                st.info("Spróbuj zmienić kategorię lub język haseł.")
+                st.stop()  # Zatrzymuje dalsze wykonywanie
+
+            # Jeśli znaleźliśmy słowa, losujemy pulę
+            pool_size = min(len(all_possible_words), 40)
+            chosen_words = random.sample(all_possible_words, pool_size)
+            st.write(f"Znaleziono {len(chosen_words)} słów. Rozpoczynam generowanie definicji...")
 
             set_id = create_empty_set_in_db(new_set_name, src_code, tgt_code)
 
-            if set_id:
-                to_insert = []
-                progress_bar = st.progress(0)
+            if not set_id:
+                st.error("Nie udało się utworzyć zestawu w bazie danych Supabase.")
+                st.stop()
 
-                for i, word in enumerate(chosen_pool):
+            to_insert = []
+            progress_bar = st.progress(0)
+            status_text = st.empty()  # Miejsce na tekstowy status
+
+            for i, word in enumerate(chosen_words):
+                status_text.text(f"Przetwarzam ({i + 1}/{len(chosen_words)}): {word}")
+                try:
+                    # Dodajemy timeout do definicji, żeby jedna awaria nie wieszała wszystkiego
                     clue = get_refined_clue(word, src_code, tgt_code)
+
                     to_insert.append({
                         "set_id": set_id,
                         "word": word.upper(),
                         "clue": clue
                     })
-                    progress_bar.progress((i + 1) / pool_size)
+                except Exception as e:
+                    print(f"Błąd przy słowie {word}: {e}")
+                    # Kontynuujemy mimo błędu jednego słowa
+
+                progress_bar.progress((i + 1) / len(chosen_words))
 
                 if to_insert:
                     supabase = get_supabase_client()

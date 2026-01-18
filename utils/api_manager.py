@@ -140,38 +140,38 @@ def get_automated_clue(word_source, src_lang_code, tgt_lang_code):
 
 
 def get_words_from_conceptnet(category_name, lang_code, limit=40):
-    """Pobiera słowa bezpośrednio w danym języku z ConceptNet."""
-    # Mapowanie kategorii na angielskie tagi ConceptNet dla lepszych wyników
     CAT_MAP = {
-        "Zwierzęta": "animal",
-        "Jedzenie": "food",
-        "Podróże": "travel",
-        "Dom": "house",
-        "Praca": "job",
-        "Sport": "sport"
+        "Zwierzęta": "animal", "Jedzenie": "food", "Podróże": "travel",
+        "Dom": "house", "Praca": "job", "Sport": "sport"
     }
 
     tag = CAT_MAP.get(category_name, "object")
-    # Szukamy słów w języku lang_code, które są powiązane z tagiem
-    url = f"http://api.conceptnet.io/c/{lang_code}/{tag}?rel=/r/RelatedTo&limit=1000"
+    # Ważne: ConceptNet używa formatu /c/pl/pies
+    url = f"http://api.conceptnet.io/c/{lang_code}/{tag}?rel=/r/RelatedTo&limit=100"
+
+    print(f"DEBUG: Próbuję pobrać słowa dla: {tag} w języku: {lang_code}")
 
     try:
-        res = requests.get(url, timeout=5).json()
+        response = requests.get(url, timeout=10)
+        if response.status_code != 200:
+            print(f"DEBUG: Błąd API ConceptNet: {response.status_code}")
+            return []
+
+        res = response.json()
         raw_words = []
         for edge in res.get('edges', []):
-            # Wyciągamy słowo z labela (ConceptNet zwraca URI typu /c/pl/pies)
-            word = edge['start']['label'] if edge['start']['language'] == lang_code else edge['end']['label']
+            # Sprawdzamy oba końce krawędzi grafu
+            for node in ['start', 'end']:
+                if edge[node].get('language') == lang_code:
+                    word = edge[node].get('label')
+                    if word and re.match(r"^[a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ]{3,12}$", word):
+                        raw_words.append(word.upper())
 
-            # FILTRY:
-            # 1. Tylko pojedyncze słowa (brak spacji i myślników)
-            # 2. Tylko litery (bez cyfr i znaków specjalnych)
-            # 3. Rozsądna długość
-            if re.match(r"^[a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ]{3,16}$", word):
-                if word.lower() != tag.lower():
-                    raw_words.append(word.upper())
-
-        return list(set(raw_words))  # Usuwamy duplikaty
-    except:
+        result = list(set(raw_words))
+        print(f"DEBUG: Znaleziono słów: {len(result)}")
+        return result
+    except Exception as e:
+        print(f"DEBUG: Wyjątek ConceptNet: {e}")
         return []
 
 
