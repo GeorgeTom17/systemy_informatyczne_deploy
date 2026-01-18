@@ -154,14 +154,14 @@ def show_main_menu():
                     "Słowa w języku:",
                     options=lang_names,
                     index=source_index,
-                    key="src_lang_sel"
+                    key="src_lang_{current_set}"
                 )
             with col_l2:
                 tgt_lang_name = st.selectbox(
                     "Definicje w języku:",
                     options=lang_names,
                     index=target_index,
-                    key="tgt_lang_sel"
+                    key="tgt_lang_{current_set}"
                 )
 
             # --- TUTAJ DODAJEMY MAPOWANIE NA KODY ISO ---
