@@ -287,3 +287,44 @@ def get_set_metadata(set_name):
         return res.data if res.data else {"source_lang": "pl", "target_lang": "en"}
     except:
         return {"source_lang": "pl", "target_lang": "en"} # Wartości domyślne
+
+
+# utils/db_supabase.py
+
+def create_empty_set_in_db(set_name, source_lang, target_lang):
+    """Tworzy nowy wpis w tabeli sets i zwraca jego ID."""
+    supabase = get_supabase_client()
+    try:
+        # Sprawdzamy czy nazwa już istnieje, żeby uniknąć duplikatów
+        existing = supabase.table("sets").select("id").eq("name", set_name).execute()
+        if existing.data:
+            return existing.data[0]['id']
+
+        res = supabase.table("sets").insert({
+            "name": set_name,
+            "source_lang": source_lang,
+            "target_lang": target_lang
+        }).execute()
+        return res.data[0]['id'] if res.data else None
+    except Exception as e:
+        st.error(f"Błąd tworzenia zestawu: {e}")
+        return None
+
+
+def delete_set_from_db(set_name):
+    """Usuwa zestaw i wszystkie powiązane z nim słowa."""
+    supabase = get_supabase_client()
+    try:
+        set_res = supabase.table("sets").select("id").eq("name", set_name).single().execute()
+        if not set_res.data:
+            return False
+        set_id = set_res.data['id']
+
+        # 1. Usuwamy słowa przypisane do zestawu
+        supabase.table("words").delete().eq("set_id", set_id).execute()
+        # 2. Usuwamy sam zestaw
+        supabase.table("sets").delete().eq("id", set_id).execute()
+        return True
+    except Exception as e:
+        st.error(f"Błąd podczas usuwania: {e}")
+        return False

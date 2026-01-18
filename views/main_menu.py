@@ -13,7 +13,10 @@ from utils.db_supabase import (
     load_words_from_db,
     save_word_to_db,
     update_set_content_in_db,
-    get_set_metadata
+    get_set_metadata,
+    create_empty_set_in_db,
+    get_supabase_client,
+    delete_set_from_db
 )
 from utils.api_manager import get_complex_suggestions
 from utils.api_manager import translate_text, fetch_words_for_category, get_automated_clue
@@ -47,47 +50,45 @@ def open_random_generator_window():
     st.markdown("---")
 
     if st.button("Generuj i Graj", type="primary", use_container_width=True):
+        from datetime import datetime
         src_code = LANG_MAP[src_lang]
         tgt_code = LANG_MAP[tgt_lang]
-        category_en = CATEGORIES[selected_category]
 
-        with st.spinner("Przeszukuję bazę wiedzy i buduję definicje..."):
-            # 1. Pobieramy dużą pulę słów po angielsku dla kategorii
-            raw_en_words = fetch_words_for_category(category_en, limit=40)
+        # Nazwa zestawu z datą i godziną, żeby była unikalna
+        new_set_name = f"Szybka Gra - {selected_category} ({datetime.now().strftime('%d/%m %H:%M')})"
 
-            if not raw_en_words:
-                st.error("Błąd bazy danych słów. Spróbuj później.")
-                return
-
-            # 2. Losujemy podzbiór słów
+        with st.spinner("Buduję krzyżówkę w bazie danych..."):
+            # 1. Pobieramy słowa (Twój kod z poprzedniego kroku)
+            raw_en_words = fetch_words_for_category(CATEGORIES[selected_category], limit=40)
             chosen_en_words = random.sample(raw_en_words, min(len(raw_en_words), limit))
 
-            words_data = []
-            progress_bar = st.progress(0)
+            # 2. Tworzymy nowy zestaw w tabeli 'sets'
+            set_id = create_empty_set_in_db(new_set_name, src_code, tgt_code)
 
-            for i, en_word in enumerate(chosen_en_words):
-                # Tłumaczymy słowo na język haseł (np. en -> es)
-                word_in_src = translate_text(en_word, 'en', src_code).upper()
+            if set_id:
+                to_insert = []
+                for en_word in chosen_en_words:
+                    word_in_src = translate_text(en_word, 'en', src_code).upper()
+                    clue = get_automated_clue(word_in_src, src_code, tgt_code)
+                    to_insert.append({
+                        "set_id": set_id,
+                        "word": word_in_src,
+                        "clue": clue
+                    })
 
-                # Generujemy definicję (most angielski -> tgt_code)
-                clue = get_automated_clue(word_in_src, src_code, tgt_code)
+                # 3. Wstawiamy słowa do tabeli 'words'
+                if to_insert:
+                    supabase = get_supabase_client()
+                    supabase.table("words").insert(to_insert).execute()
 
-                words_data.append({"word": word_in_src, "clue": clue})
-                progress_bar.progress((i + 1) / len(chosen_en_words))
-
-            if words_data:
-                # Zapisujemy do pliku tymczasowego dla sesji
-                target_filename = "random_generated"
-                file_path = os.path.join(DATA_DIR, f"{target_filename}.json")
-                os.makedirs(DATA_DIR, exist_ok=True)
-
-                with open(file_path, "w", encoding="utf-8") as f:
-                    json.dump(words_data, f, indent=4, ensure_ascii=False)
-
-                st.session_state.active_set = target_filename
+                # 4. Przekierowujemy do widoku krzyżówki
+                st.session_state.selected_set_name = new_set_name
+                st.session_state.active_set = new_set_name
                 st.session_state.current_view = 'crossword'
+
                 if 'crossword_data' in st.session_state:
                     del st.session_state['crossword_data']
+
                 st.rerun()
 
 
@@ -259,7 +260,7 @@ def show_main_menu():
             hide_index=True
         )
 
-        col_save, col_info = st.columns([1, 4])
+        col_save, col_delete, col_info = st.columns([1, 1, 3])
         with col_save:
             if st.button("Zapisz zmiany w tabeli", type="primary"):
                 new_data = edited_df.to_dict('records')
@@ -269,4 +270,14 @@ def show_main_menu():
                     st.toast("Zestaw oraz języki zostały zaktualizowane!")
                 else:
                     st.error("Wystąpił błąd podczas zapisu.")
-        st.divider()
+                pass
+        with col_delete:
+            # Dodajemy przycisk usuwania z potwierdzeniem
+            if st.button("🗑️ Usuń zestaw", type="secondary", use_container_width=True):
+                if delete_set_from_db(current_set):
+                    st.toast(f"Zestaw '{current_set}' został usunięty.")
+                    # Czyścimy stan i odświeżamy
+                    st.session_state.selected_set_name = None
+                    if 'table_data' in st.session_state:
+                        del st.session_state.table_data
+                    st.rerun()
