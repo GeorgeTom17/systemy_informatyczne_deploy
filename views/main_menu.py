@@ -16,11 +16,11 @@ from utils.db_supabase import (
     get_set_metadata,
     create_empty_set_in_db,
     get_supabase_client,
-    delete_set_from_db,
+    delete_set_from_db
 
 )
 from utils.api_manager import get_complex_suggestions
-from utils.api_manager import translate_text, fetch_words_for_category, get_automated_clue, get_words_from_conceptnet, get_refined_clue
+from utils.api_manager import translate_text, fetch_words_for_category, get_automated_clue, get_words_from_conceptnet, get_refined_clue, get_words_from_wikipedia
 import random
 
 
@@ -59,7 +59,7 @@ def open_random_generator_window():
         new_set_name = f"Pakiet: {selected_category} ({datetime.now().strftime('%H:%M')})"
 
         with st.spinner(f"Szukam słówek dla kategorii {selected_category}..."):
-            all_possible_words = get_words_from_conceptnet(selected_category, src_code)
+            all_possible_words = get_words_from_wikipedia(selected_category, src_code)
 
             if not all_possible_words:
                 st.error(
@@ -68,8 +68,7 @@ def open_random_generator_window():
                 st.stop()  # Zatrzymuje dalsze wykonywanie
 
             # Jeśli znaleźliśmy słowa, losujemy pulę
-            pool_size = min(len(all_possible_words), 40)
-            chosen_words = random.sample(all_possible_words, pool_size)
+            chosen_words = random.sample(all_possible_words, min(len(all_possible_words), 45))
             st.write(f"Znaleziono {len(chosen_words)} słów. Rozpoczynam generowanie definicji...")
 
             set_id = create_empty_set_in_db(new_set_name, src_code, tgt_code)

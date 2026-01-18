@@ -191,26 +191,94 @@ def get_direct_wiktionary_definition(word, lang_code):
 
 
 def get_refined_clue(word, src_lang, tgt_lang):
-    """Pobiera definicję w języku źródłowym i tłumaczy ją na docelowy."""
-    from utils.api_manager import translate_text  # Twoja funkcja MyMemory
+    """Pobiera definicję z Wikisłownika (src) i tłumaczy na (tgt)."""
 
-    # 1. Pobierz definicję w języku, w którym jest słowo
-    definition = get_direct_wiktionary_definition(word, src_lang)
+    # 1. Próba pobrania definicji bezpośrednio z Wikisłownika
+    wiki_url = f"https://{src_lang}.wiktionary.org/api/rest_v1/page/summary/{word.lower()}"
+    definition = None
 
+    try:
+        res = requests.get(wiki_url, timeout=5)
+        if res.status_code == 200:
+            data = res.json()
+            definition = data.get("extract")
+    except:
+        pass
+
+    # 2. Jeśli brak definicji w Wikisłowniku, używamy Wikipedii
+    if not definition:
+        wiki_url = f"https://{src_lang}.wikipedia.org/api/rest_v1/page/summary/{word.lower()}"
+        try:
+            res = requests.get(wiki_url, timeout=5)
+            if res.status_code == 200:
+                definition = res.json().get("extract")
+        except:
+            pass
+
+    # 3. Tłumaczenie i czyszczenie
     if definition:
-        # Jeśli mamy definicję, czyścimy ją ze słowa kluczowego (żeby nie było podpowiedzi w tekście)
-        pattern = re.compile(word, re.IGNORECASE)
-        clean_def = pattern.sub("______", definition)
-        # 2. Tłumaczymy gotową definicję na język docelowy
+        # Usuwamy ewentualne wystąpienia szukanego słowa w definicji (ukrywamy hasło)
+        clean_def = re.sub(word, "________", definition, flags=re.IGNORECASE)
+        # Tłumaczymy na język docelowy
         return translate_text(clean_def, src_lang, tgt_lang)
-    else:
-        # 3. Fallback: Jeśli brak definicji, używamy prostego tłumaczenia słowa
-        # Ale dodajemy frazę "Słowo oznaczające..." żeby brzmiało jak podpowiedź
-        translation = translate_text(word, src_lang, tgt_lang)
-        prefix = {
-            "pl": "Słowo oznaczające: ",
-            "en": "A word meaning: ",
-            "de": "Ein Wort für: ",
-            "es": "Una palabra que significa: "
-        }.get(tgt_lang, "")
-        return f"{prefix}{translation}"
+
+    # 4. Fallback: Jeśli wszystko inne zawiedzie – proste tłumaczenie słowa
+    return translate_text(word, src_lang, tgt_lang)
+
+
+def get_words_from_wikipedia(category_name, lang_code, limit=50):
+    """Pobiera listę haseł z konkretnej kategorii Wikipedii w danym języku."""
+
+    # Mapowanie prostych nazw na oficjalne nazwy kategorii w różnych językach
+    CATEGORY_MAP = {
+        "pl": {
+            "Sport": "Kategoria:Sport", "Jedzenie": "Kategoria:Kulinaria",
+            "Zwierzęta": "Kategoria:Zwierzęta", "Dom": "Kategoria:Dom", "Praca": "Kategoria:Zawody"
+        },
+        "en": {
+            "Sport": "Category:Sports", "Jedzenie": "Category:Foods",
+            "Zwierzęta": "Category:Animals", "Dom": "Category:Home", "Praca": "Category:Occupations"
+        },
+        "de": {
+            "Sport": "Kategorie:Sport", "Jedzenie": "Kategorie:Essen und Trinken",
+            "Zwierzęta": "Kategorie:Tiere", "Dom": "Kategorie:Haushalt", "Praca": "Kategorie:Beruf"
+        },
+        "es": {
+            "Sport": "Categoría:Deporte", "Jedzenie": "Categoría:Gastronomía",
+            "Zwierzęta": "Categoría:Animales", "Dom": "Categoría:Hogar", "Praca": "Categoría:Ocupaciones"
+        }
+    }
+
+    # Pobieramy nazwę kategorii dla danego języka (domyślnie EN jeśli brak)
+    lang_map = CATEGORY_MAP.get(lang_code, CATEGORY_MAP['en'])
+    cat_title = lang_map.get(category_name, f"Category:{category_name}")
+
+    url = f"https://{lang_code}.wikipedia.org/w/api.php"
+    params = {
+        "action": "query",
+        "list": "categorymembers",
+        "cmtitle": cat_title,
+        "cmlimit": 150,  # Pobieramy więcej, żeby mieć z czego filtrować
+        "format": "json",
+        "origin": "*"
+    }
+
+    try:
+        response = requests.get(url, timeout=10)
+        data = response.json()
+        members = data.get("query", {}).get("categorymembers", [])
+
+        valid_words = []
+        for m in members:
+            word = m['title']
+            # FILTRY JAKOŚCIOWE:
+            # 1. Tylko pojedyncze słowa (brak spacji, myślników, nawiasów)
+            if re.match(r"^[a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ]{3,12}$", word):
+                # 2. Wykluczamy nazwy techniczne Wikipedii
+                if ":" not in word:
+                    valid_words.append(word.upper())
+
+        return list(set(valid_words))
+    except Exception as e:
+        print(f"Błąd Wikipedia API: {e}")
+        return []
