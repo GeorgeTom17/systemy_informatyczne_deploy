@@ -31,27 +31,41 @@ SPECIAL_CHARACTERS = {
 
 @st.fragment(run_every=2)
 def student_auto_finalizer(s_id, s_name):
-    """Sprawdza w bazie, czy uczeń ukończył zadanie w JS."""
+    """
+    To jest 'most'. Sprawdza czy w tabeli LIVE pojawił się status 'is_finished'.
+    Jeśli tak - kopiuje dane do tabeli RESULTS i kasuje rekord z LIVE.
+    """
     from utils.db_supabase import get_supabase_client, save_result_to_db
 
     supabase = get_supabase_client()
-    res = supabase.table("realtime_scores") \
-        .select("is_finished, completion_time, hint_count") \
-        .eq("session_id", s_id) \
-        .eq("student_name", s_name) \
-        .single().execute()
 
-    if res.data and res.data.get('is_finished'):
-        # Jeśli JS wysłał info o końcu, zapisujemy oficjalnie w tabeli results
-        final_time = res.data.get('completion_time')
-        hints = res.data.get('hint_count', 0)
+    # Pobieramy rekord ucznia z tabeli LIVE
+    res = supabase.table("realtime_scores")\
+        .select("is_finished, completion_time, hint_count")\
+        .eq("session_id", s_id)\
+        .eq("student_name", s_name)\
+        .execute()
 
-        success = save_result_to_db(s_id, s_name, final_time, hints)
-        if success:
-            # Usuwamy z tabeli live i odświeżamy widok na "Sukces"
-            supabase.table("realtime_scores").delete().eq("session_id", s_id).eq("student_name", s_name).execute()
-            st.session_state.result_submitted = True
-            st.rerun()
+    if res.data and len(res.data) > 0:
+        data = res.data[0]
+
+        # JEŚLI JS OZNACZYŁ JAKO ZAKOŃCZONE
+        if data.get('is_finished') == True:
+            final_time = data.get('completion_time')
+            hints = data.get('hint_count', 0)
+
+            # 1. Zapisujemy w oficjalnej tabeli wyników
+            success = save_result_to_db(s_id, s_name, final_time, hints)
+
+            if success:
+                # 2. Usuwamy z tabeli LIVE (żeby czujka nie kręciła się w nieskończoność)
+                supabase.table("realtime_scores").delete()\
+                    .eq("session_id", s_id)\
+                    .eq("student_name", s_name).execute()
+
+                # 3. Zmieniamy stan aplikacji, co wyłączy iframe i pokaże gratulacje
+                st.session_state.result_submitted = True
+                st.rerun()
 
 @st.fragment(run_every=2)
 def render_student_rank_badge(s_id, s_name):
@@ -405,9 +419,17 @@ def show_crossword_view(student_mode=False, session_name=None, student_name=None
                         
                         
                         async function finalizeSessionAuto(finalTime) {{
+                            // Musimy przeliczyć poprawne odpowiedzi na miejscu, by mieć pewność danych
+                            const inputs = document.querySelectorAll('input');
+                            const totalCells = inputs.length;
+                            let correctCount = 0;
+                            inputs.forEach(input => {{
+                                if (input.value.toUpperCase() === input.getAttribute("data-correct")) correctCount++;
+                            }});
+                        
                             try {{
                                 const url = `${{supabaseUrl}}/rest/v1/realtime_scores?on_conflict=session_id,student_name`;
-                                await fetch(url, {{
+                                const response = await fetch(url, {{
                                     method: 'POST',
                                     headers: {{
                                         'apikey': supabaseKey,
@@ -426,9 +448,10 @@ def show_crossword_view(student_mode=False, session_name=None, student_name=None
                                         last_updated: new Date().toISOString()
                                     }})
                                 }});
-                                console.log("Wynik przesłany automatycznie.");
-                            }} catch {{
-                                console.error("Błąd automatycznego przesyłania:", e);
+                                
+                                if(response.ok) console.log("Dane końcowe wysłane");
+                            }} catch (e) {{
+                                console.error("Błąd wysyłki końcowej:", e);
                             }}
                         }}
                         
@@ -544,23 +567,38 @@ def show_crossword_view(student_mode=False, session_name=None, student_name=None
                         function checkAnswers() {{
                             if (isSolved) return;
                             const inputs = document.querySelectorAll('input');
-                            let errors = 0; let empty = 0;
+                            let errors = 0; 
+                            let empty = 0;
                         
+                            // Najpierw kolorujemy wszystko
                             inputs.forEach(input => {{
                                 const val = input.value.toUpperCase();
                                 const correct = input.getAttribute("data-correct");
-                                if (val.length === 0) {{ empty++; }}
-                                else if (val !== correct) {{ errors++; }}
+                                input.classList.remove("valid", "invalid");
+                        
+                                if (val.length === 0) {{
+                                    empty++; 
+                                }} else if (val === correct) {{
+                                    input.classList.add("valid"); // LUDZIE WIDZĄ ZIELONY
+                                }} else {{
+                                    input.classList.add("invalid"); // LUDZIE WIDZĄ CZERWONY
+                                    errors++; 
+                                }}
                             }});
                         
+                            // Jeśli wszystko jest OK
                             if (errors === 0 && empty === 0) {{
                                 isSolved = true;
                                 clearInterval(timerInterval);
                                 const finalTime = document.getElementById("timer").innerText;
                                 
+                                // WYŚLIJ DO BAZY
                                 finalizeSessionAuto(finalTime);
                                 
-                                alert("Brawo! Krzyżówka rozwiązana w czasie: " + finalTime);
+                                // Alert dajemy z małym opóźnieniem, żeby przeglądarka zdążyła wyrenderować kolory
+                                setTimeout(() => {{
+                                    alert("Brawo! Rozwiązałeś krzyżówkę w czasie: " + finalTime);
+                                }}, 100);
                             }}
                         }}
 
