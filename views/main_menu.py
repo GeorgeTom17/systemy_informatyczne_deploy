@@ -75,6 +75,8 @@ def show_main_menu():
         "Hiszpański": "es",
         "Włoski": "it"
     }
+    lang_names = list(LANG_MAP.keys())
+    lang_codes = list(LANG_MAP.values())
     with st.sidebar:
         st.header("Zarządzanie Zestawami")
 
@@ -127,8 +129,6 @@ def show_main_menu():
         set_meta = get_set_metadata(current_set)
         db_source = set_meta.get('source_lang', 'pl')
         db_target = set_meta.get('target_lang', 'en')
-        lang_names = list(LANG_MAP.keys())
-        lang_codes = list(LANG_MAP.values())
         try:
             source_index = lang_codes.index(db_source)
         except ValueError:
@@ -144,9 +144,9 @@ def show_main_menu():
         if df.empty:
             df = pd.DataFrame(columns=["word", "clue"])
 
-        st.info("Kliknij w komórkę, aby edytować. Zaznacz wiersz i naciśnij Delete, aby usunąć.")
 
-        st.subheader("🌐 Konfiguracja Językowa")
+
+        st.subheader("Konfiguracja Językowa")
         with st.container(border=True):
             col_l1, col_l2 = st.columns(2)
             with col_l1:
@@ -154,14 +154,14 @@ def show_main_menu():
                     "Słowa w języku:",
                     options=lang_names,
                     index=source_index,
-                    key="src_lang_{current_set}"
+                    key=f"src_sel_{current_set}"
                 )
             with col_l2:
                 tgt_lang_name = st.selectbox(
                     "Definicje w języku:",
                     options=lang_names,
                     index=target_index,
-                    key="tgt_lang_{current_set}"
+                    key=f"tgt_sel_{current_set}"
                 )
             # --- TUTAJ DODAJEMY MAPOWANIE NA KODY ISO ---
             source_lang_code = LANG_MAP[src_lang_name]
@@ -183,7 +183,7 @@ def show_main_menu():
                         st.code(sug)  # Wyświetla definicję w bloku do łatwego kopiowania
                 else:
                     st.info("Nie znaleziono propozycji. Wpisz własną definicję poniżej.")
-
+        st.info("Kliknij w komórkę, aby edytować. Zaznacz wiersz i naciśnij Delete, aby usunąć.")
         edited_df = st.data_editor(
             df,
             column_config={
@@ -215,4 +215,3 @@ def show_main_menu():
                 else:
                     st.error("Wystąpił błąd podczas zapisu.")
         st.divider()
-        st.rerun()
