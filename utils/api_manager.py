@@ -229,52 +229,49 @@ def get_refined_clue(word, src_lang, tgt_lang):
 def get_words_from_wikipedia(category_name, lang_code, limit=50):
     """Pobiera listę haseł z konkretnej kategorii Wikipedii w danym języku."""
 
-    # Mapowanie prostych nazw na oficjalne nazwy kategorii w różnych językach
+    # ... (mapowanie CATEGORY_MAP pozostaje bez zmian) ...
     CATEGORY_MAP = {
-        "pl": {
-            "Sport": "Kategoria:Sport", "Jedzenie": "Kategoria:Kulinaria",
-            "Zwierzęta": "Kategoria:Zwierzęta", "Dom": "Kategoria:Dom", "Praca": "Kategoria:Zawody"
-        },
-        "en": {
-            "Sport": "Category:Sports", "Jedzenie": "Category:Foods",
-            "Zwierzęta": "Category:Animals", "Dom": "Category:Home", "Praca": "Category:Occupations"
-        },
-        "de": {
-            "Sport": "Kategorie:Sport", "Jedzenie": "Kategorie:Essen und Trinken",
-            "Zwierzęta": "Kategorie:Tiere", "Dom": "Kategorie:Haushalt", "Praca": "Kategorie:Beruf"
-        },
-        "es": {
-            "Sport": "Categoría:Deporte", "Jedzenie": "Categoría:Gastronomía",
-            "Zwierzęta": "Categoría:Animales", "Dom": "Categoría:Hogar", "Praca": "Categoría:Ocupaciones"
-        }
+        "pl": {"Sport": "Kategoria:Dyscypliny_sportowe", "Jedzenie": "Kategoria:Potrawy",
+               "Zwierzęta": "Kategoria:Zwierzęta", "Dom": "Kategoria:Wyposażenie_domu", "Praca": "Kategoria:Zawody",
+               "Podróże": "Kategoria:Turystyka"},
+        "en": {"Sport": "Category:Sports", "Jedzenie": "Category:Foods", "Zwierzęta": "Category:Animals",
+               "Dom": "Category:Household_items", "Praca": "Category:Occupations", "Podróże": "Category:Travel"},
+        "de": {"Sport": "Kategorie:Sportart", "Jedzenie": "Kategorie:Essen_und_Trinken", "Zwierzęta": "Kategorie:Tiere",
+               "Dom": "Kategorie:Haushalt", "Praca": "Kategorie:Beruf", "Podróże": "Kategorie:Tourismus"},
+        "es": {"Sport": "Categoría:Deportes", "Jedzenie": "Categoría:Platos_típicos", "Zwierzęta": "Categoría:Animales",
+               "Dom": "Categoría:Utensilios_domésticos", "Praca": "Categoría:Ocupaciones",
+               "Podróże": "Categoría:Turismo"},
+        "fr": {"Sport": "Catégorie:Sport", "Jedzenie": "Catégorie:Aliment", "Zwierzęta": "Catégorie:Animal",
+               "Dom": "Catégorie:Objet_domestique", "Praca": "Catégorie:Métier", "Podróże": "Catégorie:Tourisme"}
     }
 
-    # Pobieramy nazwę kategorii dla danego języka (domyślnie EN jeśli brak)
     lang_map = CATEGORY_MAP.get(lang_code, CATEGORY_MAP['en'])
     cat_title = lang_map.get(category_name, f"Category:{category_name}")
 
     url = f"https://{lang_code}.wikipedia.org/w/api.php"
+
     params = {
         "action": "query",
         "list": "categorymembers",
         "cmtitle": cat_title,
-        "cmlimit": 150,  # Pobieramy więcej, żeby mieć z czego filtrować
+        "cmlimit": 150,
+        "cmtype": "page",
         "format": "json",
         "origin": "*"
     }
 
     try:
-        response = requests.get(url, timeout=10)
+        # TUTAJ BYŁ BŁĄD - musimy dodać params=params
+        response = requests.get(url, params=params, timeout=10)
+
         data = response.json()
         members = data.get("query", {}).get("categorymembers", [])
 
         valid_words = []
         for m in members:
             word = m['title']
-            # FILTRY JAKOŚCIOWE:
-            # 1. Tylko pojedyncze słowa (brak spacji, myślników, nawiasów)
+            # Filtracja słów (3-12 znaków, same litery)
             if re.match(r"^[a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ]{3,12}$", word):
-                # 2. Wykluczamy nazwy techniczne Wikipedii
                 if ":" not in word:
                     valid_words.append(word.upper())
 

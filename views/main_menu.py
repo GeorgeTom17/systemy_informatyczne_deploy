@@ -63,7 +63,7 @@ def open_random_generator_window():
 
             if not all_possible_words:
                 st.error(
-                    f"ConceptNet nie zwrócił żadnych słów dla kategorii '{selected_category}' w języku '{src_code}'.")
+                    f"Wikipedia nie zwróciła żadnych słów dla kategorii '{selected_category}' w języku '{src_code}'.")
                 st.info("Spróbuj zmienić kategorię lub język haseł.")
                 st.stop()  # Zatrzymuje dalsze wykonywanie
 
