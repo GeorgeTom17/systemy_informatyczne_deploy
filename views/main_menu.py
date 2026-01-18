@@ -207,8 +207,8 @@ def show_main_menu():
                                 st.session_state.table_data.append(new_row)
                                 st.success("Dodano do tabeli!")
                                 st.rerun()  # Odświeżamy, by editor zobaczył nowy wiersz
-                    else:
-                        st.warning("Brak propozycji.")
+                else:
+                    st.warning("Brak propozycji.")
 
         st.divider()
         st.info("Kliknij w komórkę, aby edytować. Zaznacz wiersz i naciśnij Delete, aby usunąć.")
