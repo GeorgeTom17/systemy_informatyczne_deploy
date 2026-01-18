@@ -228,7 +228,6 @@ def get_refined_clue(word, src_lang, tgt_lang):
 
 
 def get_words_from_wikipedia(category_name, lang_code, limit=50):
-    # Mapowanie kategorii (bez zmian)
     CATEGORY_MAP = {
         "pl": {"Sport": "Kategoria:Dyscypliny_sportowe", "Jedzenie": "Kategoria:Potrawy",
                "Zwierzęta": "Kategoria:Zwierzęta", "Dom": "Kategoria:Wyposażenie_domu", "Praca": "Kategoria:Zawody",
@@ -248,51 +247,59 @@ def get_words_from_wikipedia(category_name, lang_code, limit=50):
     cat_title = lang_map.get(category_name, f"Category:{category_name}")
     url = f"https://{lang_code}.wikipedia.org/w/api.php"
 
-    # 1. KLUCZOWE: Dodajemy nagłówki identyfikujące aplikację
-    headers = {
-        "User-Agent": "KrzyzowkaEduApp/1.0 (jertom1@st.amu.edu.pl)",  # Wikipedia tego wymaga
-        "Accept": "application/json"
-    }
+    headers = {"User-Agent": "KrzyzowkaEduApp/1.0 (kontakt@twoja_domena.com)"}
 
-    params = {
-        "action": "query",
-        "list": "categorymembers",
-        "cmtitle": cat_title,
-        "cmlimit": 150,
-        "cmtype": "page",
-        "format": "json",
-        "origin": "*"
-    }
+    # Lista na znalezione słowa
+    collected_words = []
+    # Lista kategorii do sprawdzenia (zaczynamy od głównej)
+    categories_to_scan = [cat_title]
+    # Zbiór sprawdzonych kategorii (żeby nie wpadać w pętle)
+    seen_categories = set()
 
     try:
-        # 2. Wykonujemy zapytanie z nagłówkami
-        response = requests.get(url, params=params, headers=headers, timeout=10)
+        # Skanujemy dopóki nie mamy limitu lub nie skończą się kategorie (max 10 kategorii, by nie trwało wiecznie)
+        while len(collected_words) < limit and categories_to_scan and len(seen_categories) < 15:
+            current_cat = categories_to_scan.pop(0)
+            if current_cat in seen_categories: continue
+            seen_categories.add(current_cat)
 
-        # 3. Sprawdzamy status HTTP (czy 200 OK)
-        if response.status_code != 200:
-            st.error(f"Wikipedia zwróciła błąd HTTP: {response.status_code}")
-            return []
+            params = {
+                "action": "query",
+                "list": "categorymembers",
+                "cmtitle": current_cat,
+                "cmlimit": 150,
+                "cmtype": "page|subcat",  # Pobieramy strony ORAZ podkategorie
+                "format": "json",
+                "origin": "*"
+            }
 
-        # 4. Sprawdzamy czy to na pewno JSON przed dekodowaniem
-        if "application/json" not in response.headers.get("Content-Type", ""):
-            st.error("Otrzymano format inny niż JSON (prawdopodobnie strona błędu HTML).")
-            # Wypiszmy początek odpowiedzi w logach, żeby zobaczyć co to jest
-            print(f"DEBUG: Otrzymana treść: {response.text[:200]}")
-            return []
+            response = requests.get(url, params=params, headers=headers, timeout=10)
+            data = response.json()
+            members = data.get("query", {}).get("categorymembers", [])
 
-        data = response.json()
-        members = data.get("query", {}).get("categorymembers", [])
+            for m in members:
+                title = m['title']
+                # Jeśli to podkategoria (ns 14), dodaj do listy skanowania
+                if m['ns'] == 14:
+                    if title not in seen_categories:
+                        categories_to_scan.append(title)
 
-        valid_words = []
-        for m in members:
-            word = m['title']
-            # Filtracja (tylko pojedyncze słowa, brak znaków specjalnych)
-            if re.match(r"^[a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ]{3,12}$", word):
-                if ":" not in word:
-                    valid_words.append(word.upper())
+                # Jeśli to strona (ns 0), sprawdź czy pasuje do krzyżówki
+                elif m['ns'] == 0:
+                    # FILTR: 3-12 liter, bez spacji, bez cyfr
+                    if re.match(r"^[a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ]{3,12}$", title):
+                        if ":" not in title:
+                            collected_words.append(title.upper())
 
-        return list(set(valid_words))
+            # Usuwamy duplikaty na bieżąco
+            collected_words = list(set(collected_words))
+
+        # Losujemy finalną pulę, jeśli mamy ich więcej niż limit
+        if len(collected_words) > limit:
+            return random.sample(collected_words, limit)
+
+        return collected_words
 
     except Exception as e:
-        st.error(f"Błąd krytyczny API: {e}")
-        return []
+        st.error(f"Błąd podczas głębokiego skanowania: {e}")
+        return collected_words
