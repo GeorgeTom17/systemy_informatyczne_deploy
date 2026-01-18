@@ -2,7 +2,6 @@ import json
 
 import streamlit as st
 import streamlit.components.v1 as components
-
 from utils.crossword_generator import CrosswordGenerator
 from utils.db_manager import save_student_feedback
 # Usunięto importy z data_manager
@@ -15,6 +14,7 @@ from utils.db_supabase import (
 from utils.export_code_manager import encode_crossword
 from utils.ml_engine import ai_engine
 from utils.qr_manager import generate_qr_image
+import random
 
 # Adres URL aplikacji - nie zmieniać!
 APP_BASE_URL = "https://systemyinformatycznedeploy-3crdjb98tkhzrmwgfuccaz.streamlit.app"
@@ -135,7 +135,9 @@ def show_crossword_view(student_mode=False, session_name=None, student_name=None
 
         col_gen, col_export, col_back = st.columns([3, 2, 1])
         with col_gen:
-            target_count = st.slider("Liczba słów:", 3, 40, 10)
+            # Slider dla nauczyciela, domyślnie sugeruje limit z sesji jeśli istnieje
+            suggested_limit = st.session_state.get('game_word_limit', 10)
+            target_count = st.slider("Liczba słów na planszy:", 3, 40, suggested_limit)
             generate_clicked = st.button("Generuj Nową", type="primary")
 
         if is_imported and not generate_clicked:
@@ -149,16 +151,25 @@ def show_crossword_view(student_mode=False, session_name=None, student_name=None
             )
 
         if should_generate:
-            # Ładowanie słów wyłącznie z bazy danych
-            all_words = load_words_from_db(selected_set)
-            if len(all_words) < 2:
-                st.warning(f"Zestaw '{selected_set}' ma za mało słów w bazie.")
-                return
+            current_set = st.session_state.get('active_set')
 
-            with st.spinner(f'Układam krzyżówkę...'):
-                import random
-                real_count = min(target_count, len(all_words))
-                selection = random.sample(all_words, real_count)
+            with st.spinner(f'Pobieram słowa i układam krzyżówkę...'):
+                # 1. Pobieramy pełną pulę (np. 50 słów) z bazy
+                all_words_pool = load_words_from_db(current_set)
+
+                if not all_words_pool:
+                    st.error("Wybrany zestaw jest pusty!")
+                    return
+
+                # 2. Ustalamy ile słów faktycznie chcemy na planszy
+                # Bierzemy mniejszą wartość: (to co chce użytkownik) vs (to co jest w bazie)
+                final_limit = min(target_count, len(all_words_pool))
+
+                # 3. LOSOWANIE: Wybieramy losowy podzbiór z dużej puli
+                # To dzieje się TYLKO wewnątrz bloku should_generate
+                selection = random.sample(all_words_pool, final_limit)
+
+                # 4. Generowanie układu
                 generator = CrosswordGenerator(selection)
                 grid, clues_across, clues_down = generator.generate()
 
@@ -170,10 +181,15 @@ def show_crossword_view(student_mode=False, session_name=None, student_name=None
                         if isinstance(cell, dict) and 'number' in cell:
                             word_starts[(r, c)] = cell['number']
 
+                # Zapisujemy wygenerowane dane do stanu sesji
                 st.session_state.crossword_data = (grid, clues_across, clues_down, word_starts)
                 st.session_state.last_set = selected_set
 
-            # Analiza trudności AI na podstawie słów z bazy
+                # Czyścimy dane AI, aby przeliczyły się dla nowego zestawu
+                if 'difficulty_stats' in st.session_state:
+                    del st.session_state.difficulty_stats
+
+            # 5. Analiza trudności AI (tylko dla nowo wylosowanych słów)
             current_lang_for_ml = st.session_state.get('crossword_language', 'Polski')
             difficulty_report = {"ŁATWE": 0, "ŚREDNIE": 0, "TRUDNE": 0}
 

@@ -16,10 +16,11 @@ from utils.db_supabase import (
     get_set_metadata,
     create_empty_set_in_db,
     get_supabase_client,
-    delete_set_from_db
+    delete_set_from_db,
+
 )
 from utils.api_manager import get_complex_suggestions
-from utils.api_manager import translate_text, fetch_words_for_category, get_automated_clue
+from utils.api_manager import translate_text, fetch_words_for_category, get_automated_clue, get_words_from_conceptnet, get_refined_clue
 import random
 
 
@@ -54,42 +55,47 @@ def open_random_generator_window():
         src_code = LANG_MAP[src_lang]
         tgt_code = LANG_MAP[tgt_lang]
 
-        # Nazwa zestawu z datą i godziną, żeby była unikalna
-        new_set_name = f"Szybka Gra - {selected_category} ({datetime.now().strftime('%d/%m %H:%M')})"
+        # Nazwa zestawu sugerująca dużą pulę
+        new_set_name = f"Pakiet: {selected_category} ({datetime.now().strftime('%H:%M')})"
 
-        with st.spinner("Buduję krzyżówkę w bazie danych..."):
-            # 1. Pobieramy słowa (Twój kod z poprzedniego kroku)
-            raw_en_words = fetch_words_for_category(CATEGORIES[selected_category], limit=40)
-            chosen_en_words = random.sample(raw_en_words, min(len(raw_en_words), limit))
+        with st.spinner(f"Buduję bazę 50 słów dla kategorii {selected_category}..."):
+            # 1. Pobieramy DUŻĄ listę słów z ConceptNet (limit=100 w API, żeby mieć z czego wybierać)
+            all_possible_words = get_words_from_conceptnet(selected_category, src_code)
+            random.shuffle(all_possible_words)  # Mieszamy listę przed wyborem
+            chosen_pool = all_possible_words[:50]
 
-            # 2. Tworzymy nowy zestaw w tabeli 'sets'
+            # Wybieramy 50 słów do zapisu w bazie
+            pool_size = min(len(all_possible_words), 50)
+            chosen_pool = random.sample(all_possible_words, pool_size)
+
             set_id = create_empty_set_in_db(new_set_name, src_code, tgt_code)
 
             if set_id:
                 to_insert = []
-                for en_word in chosen_en_words:
-                    word_in_src = translate_text(en_word, 'en', src_code).upper()
-                    clue = get_automated_clue(word_in_src, src_code, tgt_code)
+                progress_bar = st.progress(0)
+
+                for i, word in enumerate(chosen_pool):
+                    clue = get_refined_clue(word, src_code, tgt_code)
                     to_insert.append({
                         "set_id": set_id,
-                        "word": word_in_src,
+                        "word": word.upper(),
                         "clue": clue
                     })
+                    progress_bar.progress((i + 1) / pool_size)
 
-                # 3. Wstawiamy słowa do tabeli 'words'
                 if to_insert:
                     supabase = get_supabase_client()
                     supabase.table("words").insert(to_insert).execute()
 
-                # 4. Przekierowujemy do widoku krzyżówki
-                st.session_state.selected_set_name = new_set_name
-                st.session_state.active_set = new_set_name
-                st.session_state.current_view = 'crossword'
+                    # 2. Ważne: Ustawiamy informację o limicie dla widoku krzyżówki
+                    st.session_state.game_word_limit = limit  # Tu przekazujemy np. 10
+                    st.session_state.selected_set_name = new_set_name
+                    st.session_state.active_set = new_set_name
+                    st.session_state.current_view = 'crossword'
 
-                if 'crossword_data' in st.session_state:
-                    del st.session_state['crossword_data']
-
-                st.rerun()
+                    if 'crossword_data' in st.session_state:
+                        del st.session_state['crossword_data']
+                    st.rerun()
 
 
 def show_main_menu():
@@ -158,7 +164,6 @@ def show_main_menu():
             st.session_state.last_set = current_set
 
         st.header(f"Edytujesz zestaw: {current_set.upper()}")
-        st.subheader("Podgląd zawartości")
         set_meta = get_set_metadata(current_set)
         db_source = set_meta.get('source_lang', 'pl')
         db_target = set_meta.get('target_lang', 'en')
