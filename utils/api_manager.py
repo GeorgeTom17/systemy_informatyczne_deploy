@@ -2,6 +2,7 @@
 import requests
 import re
 import streamlit as st
+import random
 
 def get_word_suggestions(word):
     """Pobiera definicję z polskiej Wikipedii/Wikisłownika przez nowoczesne REST API."""
@@ -192,38 +193,50 @@ def get_direct_wiktionary_definition(word, lang_code):
 
 
 def get_refined_clue(word, src_lang, tgt_lang):
-    """Pobiera definicję, preferując zwięzły opis (description)."""
-    # Używamy endpointu summary, który udostępniłeś w JSON
+    """Pobiera definicję, pilnując limitu 500 znaków dla tłumacza."""
+    headers = {"User-Agent": "KrzyzowkaEduApp/1.0"}
     url = f"https://{src_lang}.wikipedia.org/api/rest_v1/page/summary/{word.lower()}"
-    headers = {"User-Agent": "KrzyzowkaEduApp/1.0 (jertom1@st.amu.edu.pl)"}
 
     try:
         res = requests.get(url, headers=headers, timeout=5)
         if res.status_code == 200:
             data = res.json()
+            wikibase_id = data.get("wikibase_item")
 
-            # 1. NAJLEPSZA OPCJA: description (zwięzły opis)
-            clue = data.get("description")
+            # 1. PRÓBA NATIVE (bez tłumacza, brak limitu)
+            if wikibase_id and src_lang != tgt_lang:
+                tgt_title = get_target_language_title(wikibase_id, tgt_lang)
+                if tgt_title:
+                    tgt_url = f"https://{tgt_lang}.wikipedia.org/api/rest_v1/page/summary/{tgt_title.replace(' ', '_')}"
+                    tgt_res = requests.get(tgt_url, headers=headers, timeout=5)
+                    if tgt_res.status_code == 200:
+                        native_clue = tgt_res.json().get("description")
+                        if native_clue:
+                            return native_clue.capitalize()
 
-            # 2. OPCJA ZAPASOWA: extract (pełny wstęp)
-            if not clue:
-                clue = data.get("extract")
-                if clue:
-                    # Czyścimy extract z hasła na początku
-                    clue = re.sub(rf"^{word}.*?[—\-\–]\s*", "", clue, flags=re.IGNORECASE)
+            # 2. PRZYGOTOWANIE TEKSTU DO TŁUMACZENIA (Backup)
+            # Wybieramy description, a jeśli brak, to tylko pierwsze zdanie z extract
+            raw_text = data.get("description") or data.get("extract") or ""
 
-            if clue:
-                # Cenzurujemy słowo, jeśli występuje w opisie
-                clue = re.sub(word, "________", clue, flags=re.IGNORECASE)
-                # Tłumaczymy na język docelowy
-                translated_clue = translate_text(clue, src_lang, tgt_lang)
-                return translated_clue.capitalize()
+            # Pobieramy tylko pierwsze zdanie (do pierwszej kropki)
+            if "." in raw_text:
+                raw_text = raw_text.split(".")[0] + "."
+
+            # TWARDY LIMIT: 450 znaków (bezpieczny margines dla API 500 znaków)
+            if len(raw_text) > 250:
+                raw_text = raw_text[:247] + "..."
+
+            # Cenzura hasła przed tłumaczeniem
+            raw_text = re.sub(word, "________", raw_text, flags=re.IGNORECASE)
+
+            # 3. TŁUMACZENIE (teraz bezpieczne < 500 znaków)
+            translated_clue = translate_text(raw_text, src_lang, tgt_lang)
+            return translated_clue.capitalize()
 
     except Exception as e:
-        print(f"Błąd pobierania definicji dla {word}: {e}")
+        print(f"Błąd przy {word}: {e}")
 
-    # 3. OSTATECZNY FALLBACK: Proste tłumaczenie
-    return f"Słowo oznaczające w języku {tgt_lang}: {translate_text(word, src_lang, tgt_lang)}"
+    return f"Pojęcie powiązane z językiem {tgt_lang}: {word}"
 
 
 def get_words_from_wikipedia(category_name, lang_code, limit=50):
@@ -302,3 +315,24 @@ def get_words_from_wikipedia(category_name, lang_code, limit=50):
     except Exception as e:
         st.error(f"Błąd podczas głębokiego skanowania: {e}")
         return collected_words
+
+
+def get_target_language_title(wikibase_id, target_lang_code):
+    """Znajduje tytuł artykułu w docelowym języku na podstawie Wikidata ID."""
+    url = "https://www.wikidata.org/w/api.php"
+    params = {
+        "action": "wbgetentities",
+        "ids": wikibase_id,
+        "props": "sitelinks",
+        "format": "json",
+        "sitefilter": f"{target_lang_code}wiki"
+    }
+
+    try:
+        res = requests.get(url, params=params, timeout=5)
+        data = res.json()
+        # Wyciągamy tytuł dla konkretnej Wikipedii (np. 'enwiki', 'dewiki')
+        title = data['entities'][wikibase_id]['sitelinks'][f'{target_lang_code}wiki']['title']
+        return title
+    except:
+        return None
