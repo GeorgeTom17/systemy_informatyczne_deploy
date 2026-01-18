@@ -192,129 +192,95 @@ def get_direct_wiktionary_definition(word, lang_code):
     return None
 
 
-def get_refined_clue(word, src_lang, tgt_lang):
-    """Pobiera definicję, pilnując limitu 500 znaków dla tłumacza."""
-    headers = {"User-Agent": "KrzyzowkaEduApp/1.0"}
-    url = f"https://{src_lang}.wikipedia.org/api/rest_v1/page/summary/{word.lower()}"
-
-    try:
-        res = requests.get(url, headers=headers, timeout=5)
-        if res.status_code == 200:
-            data = res.json()
-            wikibase_id = data.get("wikibase_item")
-
-            # 1. PRÓBA NATIVE (bez tłumacza, brak limitu)
-            if wikibase_id and src_lang != tgt_lang:
-                tgt_title = get_target_language_title(wikibase_id, tgt_lang)
-                if tgt_title:
-                    tgt_url = f"https://{tgt_lang}.wikipedia.org/api/rest_v1/page/summary/{tgt_title.replace(' ', '_')}"
-                    tgt_res = requests.get(tgt_url, headers=headers, timeout=5)
-                    if tgt_res.status_code == 200:
-                        native_clue = tgt_res.json().get("description")
-                        if native_clue:
-                            return native_clue.capitalize()
-
-            # 2. PRZYGOTOWANIE TEKSTU DO TŁUMACZENIA (Backup)
-            # Wybieramy description, a jeśli brak, to tylko pierwsze zdanie z extract
-            raw_text = data.get("description") or data.get("extract") or ""
-
-            # Pobieramy tylko pierwsze zdanie (do pierwszej kropki)
-            if "." in raw_text:
-                raw_text = raw_text.split(".")[0] + "."
-
-            # TWARDY LIMIT: 450 znaków (bezpieczny margines dla API 500 znaków)
-            if len(raw_text) > 250:
-                raw_text = raw_text[:247] + "..."
-
-            # Cenzura hasła przed tłumaczeniem
-            raw_text = re.sub(word, "________", raw_text, flags=re.IGNORECASE)
-
-            # 3. TŁUMACZENIE (teraz bezpieczne < 500 znaków)
-            translated_clue = translate_text(raw_text, src_lang, tgt_lang)
-            return translated_clue.capitalize()
-
-    except Exception as e:
-        print(f"Błąd przy {word}: {e}")
-
-    return f"Pojęcie powiązane z językiem {tgt_lang}: {word}"
-
-
-def get_words_from_wikipedia(category_name, lang_code, limit=50):
+def get_words_from_wikipedia(category_name, lang_code, limit=40):
+    # Mapowanie kategorii (bez zmian)
     CATEGORY_MAP = {
         "pl": {"Sport": "Kategoria:Dyscypliny_sportowe", "Jedzenie": "Kategoria:Potrawy",
                "Zwierzęta": "Kategoria:Zwierzęta", "Dom": "Kategoria:Wyposażenie_domu", "Praca": "Kategoria:Zawody",
                "Podróże": "Kategoria:Turystyka"},
         "en": {"Sport": "Category:Sports", "Jedzenie": "Category:Foods", "Zwierzęta": "Category:Animals",
-               "Dom": "Category:Household_items", "Praca": "Category:Occupations", "Podróże": "Category:Travel"},
-        "de": {"Sport": "Kategorie:Sportart", "Jedzenie": "Kategorie:Essen_und_Trinken", "Zwierzęta": "Kategorie:Tiere",
-               "Dom": "Kategorie:Haushalt", "Praca": "Kategorie:Beruf", "Podróże": "Kategorie:Tourismus"},
-        "es": {"Sport": "Categoría:Deportes", "Jedzenie": "Categoría:Platos_típicos", "Zwierzęta": "Categoría:Animales",
-               "Dom": "Categoría:Utensilios_domésticos", "Praca": "Categoría:Ocupaciones",
-               "Podróże": "Categoría:Turismo"},
-        "fr": {"Sport": "Catégorie:Sport", "Jedzenie": "Catégorie:Aliment", "Zwierzęta": "Catégorie:Animal",
-               "Dom": "Catégorie:Objet_domestique", "Praca": "Catégorie:Métier", "Podróże": "Catégorie:Tourisme"}
+               "Dom": "Category:Household_items", "Praca": "Category:Occupations", "Podróże": "Category:Travel"}
     }
 
     lang_map = CATEGORY_MAP.get(lang_code, CATEGORY_MAP['en'])
     cat_title = lang_map.get(category_name, f"Category:{category_name}")
     url = f"https://{lang_code}.wikipedia.org/w/api.php"
-
     headers = {"User-Agent": "KrzyzowkaEduApp/1.0 (kontakt@twoja_domena.com)"}
 
-    # Lista na znalezione słowa
     collected_words = []
-    # Lista kategorii do sprawdzenia (zaczynamy od głównej)
+    # OGRANICZENIE: Skanujemy tylko główną kategorię i jej bezpośrednie podkategorie
     categories_to_scan = [cat_title]
-    # Zbiór sprawdzonych kategorii (żeby nie wpadać w pętle)
-    seen_categories = set()
 
     try:
-        # Skanujemy dopóki nie mamy limitu lub nie skończą się kategorie (max 10 kategorii, by nie trwało wiecznie)
-        while len(collected_words) < limit and categories_to_scan and len(seen_categories) < 15:
+        # Zmniejszamy limit przeskanowanych kategorii do 5, aby nie wpadać w niszowe tematy
+        scanned_count = 0
+        while len(collected_words) < 60 and categories_to_scan and scanned_count < 5:
             current_cat = categories_to_scan.pop(0)
-            if current_cat in seen_categories: continue
-            seen_categories.add(current_cat)
+            scanned_count += 1
 
             params = {
                 "action": "query",
                 "list": "categorymembers",
                 "cmtitle": current_cat,
-                "cmlimit": 150,
-                "cmtype": "page|subcat",  # Pobieramy strony ORAZ podkategorie
-                "format": "json",
-                "origin": "*"
+                "cmlimit": 50,
+                "cmtype": "page|subcat",
+                "format": "json"
             }
 
-            response = requests.get(url, params=params, headers=headers, timeout=10)
-            data = response.json()
-            members = data.get("query", {}).get("categorymembers", [])
+            res = requests.get(url, params=params, headers=headers, timeout=5).json()
+            members = res.get("query", {}).get("categorymembers", [])
 
             for m in members:
-                title = m['title']
-                # Jeśli to podkategoria (ns 14), dodaj do listy skanowania
-                if m['ns'] == 14:
-                    if title not in seen_categories:
-                        categories_to_scan.append(title)
-
-                # Jeśli to strona (ns 0), sprawdź czy pasuje do krzyżówki
+                if m['ns'] == 14 and scanned_count == 1:  # Tylko z głównej kategorii bierzemy podkategorie
+                    categories_to_scan.append(m['title'])
                 elif m['ns'] == 0:
-                    # FILTR: 3-12 liter, bez spacji, bez cyfr
-                    if re.match(r"^[a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ]{3,12}$", title):
-                        if ":" not in title:
-                            collected_words.append(title.upper())
+                    title = m['title']
+                    # Filtr: 4-10 znaków, brak spacji, nawiasów i znaków specjalnych
+                    if re.match(r"^[a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ]{4,10}$", title):
+                        collected_words.append(title.upper())
 
-            # Usuwamy duplikaty na bieżąco
-            collected_words = list(set(collected_words))
+        return random.sample(list(set(collected_words)), min(len(set(collected_words)), limit))
+    except:
+        return []
 
-        # Losujemy finalną pulę, jeśli mamy ich więcej niż limit
-        if len(collected_words) > limit:
-            return random.sample(collected_words, limit)
 
-        return collected_words
+def get_refined_clue(word, src_lang, tgt_lang):
+    """Pobiera bardzo zwięzłą definicję."""
+    headers = {"User-Agent": "KrzyzowkaEduApp/1.0"}
 
-    except Exception as e:
-        st.error(f"Błąd podczas głębokiego skanowania: {e}")
-        return collected_words
+    # 1. Próba pobrania bezpośrednio z docelowej Wikipedii (Native Description)
+    # [Tutaj Twoja funkcja z wikibase_id i get_target_language_title]
+
+    # 2. Jeśli musimy tłumaczyć (Backup):
+    url = f"https://{src_lang}.wikipedia.org/api/rest_v1/page/summary/{word.lower()}"
+    try:
+        data = requests.get(url, headers=headers, timeout=5).json()
+
+        # PRIORYTET: description (jest najkrótszy i najlepszy)
+        clue = data.get("description")
+
+        # FALLBACK: Bardzo skrócony extract
+        if not clue:
+            extract = data.get("extract", "")
+            # Czyścimy z "Słowo - "
+            extract = re.sub(rf"^{word}.*?[—\-\–]\s*", "", extract, flags=re.IGNORECASE)
+            # BIERZEMY TYLKO PIERWSZE 12 SŁÓW
+            words = extract.split()
+            clue = " ".join(words[:12]) + "..." if len(words) > 12 else " ".join(words)
+
+        if clue:
+            # Cenzura hasła
+            clue = re.sub(word, "________", clue, flags=re.IGNORECASE)
+            # Tłumaczenie na docelowy (np. polski opis -> angielski)
+            from utils.api_manager import translate_text
+            final_clue = translate_text(clue, src_lang, tgt_lang)
+
+            # OGRANICZENIE DO 150 ZNAKÓW dla interfejsu
+            return final_clue[:147] + "..." if len(final_clue) > 150 else final_clue
+
+    except:
+        pass
+    return f"Popular term in {src_lang}"
 
 
 def get_target_language_title(wikibase_id, target_lang_code):
