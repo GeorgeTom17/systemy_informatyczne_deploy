@@ -168,7 +168,7 @@ def show_crossword_view(student_mode=False, session_name=None, student_name=None
                 # 3. LOSOWANIE: Wybieramy losowy podzbiór z dużej puli
                 # To dzieje się TYLKO wewnątrz bloku should_generate
                 selection = random.sample(all_words_pool, final_limit)
-
+                selection = sorted(selection, key=lambda x: len(x['word']), reverse=True)
                 # 4. Generowanie układu
                 generator = CrosswordGenerator(selection)
                 grid, clues_across, clues_down = generator.generate()

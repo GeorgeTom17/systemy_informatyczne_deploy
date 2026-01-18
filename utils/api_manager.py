@@ -192,22 +192,19 @@ def get_direct_wiktionary_definition(word, lang_code):
 
 
 def get_refined_clue(word, src_lang, tgt_lang):
-    """Pobiera definicję z Wikisłownika (src) i tłumaczy na (tgt)."""
-
-    # 1. Próba pobrania definicji bezpośrednio z Wikisłownika
+    """Pobiera definicję, czyści ją i tłumaczy."""
     wiki_url = f"https://{src_lang}.wiktionary.org/api/rest_v1/page/summary/{word.lower()}"
     definition = None
 
     try:
         res = requests.get(wiki_url, timeout=5)
         if res.status_code == 200:
-            data = res.json()
-            definition = data.get("extract")
+            definition = res.json().get("extract")
     except:
         pass
 
-    # 2. Jeśli brak definicji w Wikisłowniku, używamy Wikipedii
     if not definition:
+        # Próba z Wikipedii, jeśli Wikisłownik zawiedzie
         wiki_url = f"https://{src_lang}.wikipedia.org/api/rest_v1/page/summary/{word.lower()}"
         try:
             res = requests.get(wiki_url, timeout=5)
@@ -216,15 +213,26 @@ def get_refined_clue(word, src_lang, tgt_lang):
         except:
             pass
 
-    # 3. Tłumaczenie i czyszczenie
     if definition:
-        # Usuwamy ewentualne wystąpienia szukanego słowa w definicji (ukrywamy hasło)
-        clean_def = re.sub(word, "________", definition, flags=re.IGNORECASE)
-        # Tłumaczymy na język docelowy
-        return translate_text(clean_def, src_lang, tgt_lang)
+        # 1. Usuwamy hasło z początku (np. "Pies – gatunek...")
+        # Szukamy myślnika, kropki lub nawiasu po słowie
+        clean_def = re.sub(rf"^{word}\b.*?[—\-\.]\s*", "", definition, flags=re.IGNORECASE)
 
-    # 4. Fallback: Jeśli wszystko inne zawiedzie – proste tłumaczenie słowa
-    return translate_text(word, src_lang, tgt_lang)
+        # 2. Jeśli po czyszczeniu słowo nadal tam jest, zastępujemy je luką
+        clean_def = re.sub(word, "________", clean_def, flags=re.IGNORECASE)
+
+        # 3. Tłumaczymy na język docelowy
+        final_clue = translate_text(clean_def, src_lang, tgt_lang)
+
+        # Jeśli definicja jest zbyt krótka lub identyczna ze słowem po tłumaczeniu
+        if len(final_clue) < 5 or final_clue.strip().upper() == word.upper():
+            return f"Pytanie o: {word}"  # Lepiej dać prosty opis niż samo słowo
+
+        return final_clue.capitalize()
+
+    # Fallback: Jeśli wszystko zawiedzie, generujemy opisową podpowiedź
+    translation = translate_text(word, src_lang, tgt_lang)
+    return f"Przetłumacz na {tgt_lang}: {word}" if src_lang != tgt_lang else f"Słowo powiązane z tematem: {word}"
 
 
 def get_words_from_wikipedia(category_name, lang_code, limit=50):
