@@ -73,44 +73,39 @@ def open_random_generator_window():
 
             set_id = create_empty_set_in_db(new_set_name, src_code, tgt_code)
 
-            if not set_id:
-                st.error("Nie udało się utworzyć zestawu w bazie danych Supabase.")
-                st.stop()
+            if set_id:
+                to_insert = []  # Lista na wszystkie słowa
+                progress_bar = st.progress(0)
 
-            to_insert = []
-            progress_bar = st.progress(0)
-            status_text = st.empty()  # Miejsce na tekstowy status
-
-            for i, word in enumerate(chosen_words):
-                status_text.text(f"Przetwarzam ({i + 1}/{len(chosen_words)}): {word}")
-                try:
-                    # Dodajemy timeout do definicji, żeby jedna awaria nie wieszała wszystkiego
+                for i, word in enumerate(all_possible_words):
+                    # Pobieramy definicję używając nowego 'description'
                     clue = get_refined_clue(word, src_code, tgt_code)
 
+                    # DODAJEMY DO LISTY (nie nadpisujemy!)
                     to_insert.append({
                         "set_id": set_id,
                         "word": word.upper(),
                         "clue": clue
                     })
-                except Exception as e:
-                    print(f"Błąd przy słowie {word}: {e}")
-                    # Kontynuujemy mimo błędu jednego słowa
 
-                progress_bar.progress((i + 1) / len(chosen_words))
+                    progress_bar.progress((i + 1) / len(all_possible_words))
 
+                # ZAPISUJEMY CAŁĄ LISTĘ NA RAZ POZA PĘTLĄ
                 if to_insert:
-                    supabase = get_supabase_client()
-                    supabase.table("words").insert(to_insert).execute()
+                    try:
+                        supabase = get_supabase_client()
+                        # Wstawiamy całą tablicę obiektów
+                        result = supabase.table("words").insert(to_insert).execute()
 
-                    # 2. Ważne: Ustawiamy informację o limicie dla widoku krzyżówki
-                    st.session_state.game_word_limit = limit  # Tu przekazujemy np. 10
-                    st.session_state.selected_set_name = new_set_name
-                    st.session_state.active_set = new_set_name
-                    st.session_state.current_view = 'crossword'
-
-                    if 'crossword_data' in st.session_state:
-                        del st.session_state['crossword_data']
-                    st.rerun()
+                        if result.data:
+                            st.success(f"Zapisano pomyślnie {len(result.data)} słów!")
+                            st.session_state.active_set = new_set_name
+                            st.session_state.current_view = 'crossword'
+                            st.rerun()
+                        else:
+                            st.error("Baza danych nie zwróciła potwierdzenia zapisu.")
+                    except Exception as e:
+                        st.error(f"Błąd zapisu zbiorczego: {e}")
 
 
 def show_main_menu():

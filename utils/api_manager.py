@@ -192,47 +192,38 @@ def get_direct_wiktionary_definition(word, lang_code):
 
 
 def get_refined_clue(word, src_lang, tgt_lang):
-    """Pobiera definicję, czyści ją i tłumaczy."""
-    wiki_url = f"https://{src_lang}.wiktionary.org/api/rest_v1/page/summary/{word.lower()}"
-    definition = None
+    """Pobiera definicję, preferując zwięzły opis (description)."""
+    # Używamy endpointu summary, który udostępniłeś w JSON
+    url = f"https://{src_lang}.wikipedia.org/api/rest_v1/page/summary/{word.lower()}"
+    headers = {"User-Agent": "KrzyzowkaEduApp/1.0 (jertom1@st.amu.edu.pl)"}
 
     try:
-        res = requests.get(wiki_url, timeout=5)
+        res = requests.get(url, headers=headers, timeout=5)
         if res.status_code == 200:
-            definition = res.json().get("extract")
-    except:
-        pass
+            data = res.json()
 
-    if not definition:
-        # Próba z Wikipedii, jeśli Wikisłownik zawiedzie
-        wiki_url = f"https://{src_lang}.wikipedia.org/api/rest_v1/page/summary/{word.lower()}"
-        try:
-            res = requests.get(wiki_url, timeout=5)
-            if res.status_code == 200:
-                definition = res.json().get("extract")
-        except:
-            pass
+            # 1. NAJLEPSZA OPCJA: description (zwięzły opis)
+            clue = data.get("description")
 
-    if definition:
-        # 1. Usuwamy hasło z początku (np. "Pies – gatunek...")
-        # Szukamy myślnika, kropki lub nawiasu po słowie
-        clean_def = re.sub(rf"^{word}\b.*?[—\-\.]\s*", "", definition, flags=re.IGNORECASE)
+            # 2. OPCJA ZAPASOWA: extract (pełny wstęp)
+            if not clue:
+                clue = data.get("extract")
+                if clue:
+                    # Czyścimy extract z hasła na początku
+                    clue = re.sub(rf"^{word}.*?[—\-\–]\s*", "", clue, flags=re.IGNORECASE)
 
-        # 2. Jeśli po czyszczeniu słowo nadal tam jest, zastępujemy je luką
-        clean_def = re.sub(word, "________", clean_def, flags=re.IGNORECASE)
+            if clue:
+                # Cenzurujemy słowo, jeśli występuje w opisie
+                clue = re.sub(word, "________", clue, flags=re.IGNORECASE)
+                # Tłumaczymy na język docelowy
+                translated_clue = translate_text(clue, src_lang, tgt_lang)
+                return translated_clue.capitalize()
 
-        # 3. Tłumaczymy na język docelowy
-        final_clue = translate_text(clean_def, src_lang, tgt_lang)
+    except Exception as e:
+        print(f"Błąd pobierania definicji dla {word}: {e}")
 
-        # Jeśli definicja jest zbyt krótka lub identyczna ze słowem po tłumaczeniu
-        if len(final_clue) < 5 or final_clue.strip().upper() == word.upper():
-            return f"Pytanie o: {word}"  # Lepiej dać prosty opis niż samo słowo
-
-        return final_clue.capitalize()
-
-    # Fallback: Jeśli wszystko zawiedzie, generujemy opisową podpowiedź
-    translation = translate_text(word, src_lang, tgt_lang)
-    return f"Przetłumacz na {tgt_lang}: {word}" if src_lang != tgt_lang else f"Słowo powiązane z tematem: {word}"
+    # 3. OSTATECZNY FALLBACK: Proste tłumaczenie
+    return f"Słowo oznaczające w języku {tgt_lang}: {translate_text(word, src_lang, tgt_lang)}"
 
 
 def get_words_from_wikipedia(category_name, lang_code, limit=50):
