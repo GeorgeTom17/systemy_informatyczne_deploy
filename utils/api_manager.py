@@ -3,40 +3,34 @@ import requests
 
 
 def get_word_suggestions(word):
-    """Pobiera krótkie definicje z polskiego Wikisłownika."""
+    """Pobiera definicję z polskiej Wikipedii/Wikisłownika przez nowoczesne REST API."""
     if not word or len(word) < 2:
         return []
 
-    # API MediaWiki dla polskiego Wiktionary
-    url = "https://pl.wiktionary.org/w/api.php"
-    params = {
-        "action": "query",
-        "prop": "extracts",
-        "exintro": True,
-        "explaintext": True,
-        "titles": word.lower(),
-        "format": "json"
+    # Próbujemy najpierw Wikisłownik, potem Wikipedię (lepsza dla pojęć)
+    sources = [
+        f"https://pl.wiktionary.org/api/rest_v1/page/summary/{word.lower()}",
+        f"https://pl.wikipedia.org/api/rest_v1/page/summary/{word.lower()}"
+    ]
+
+    suggestions = []
+
+    headers = {
+        'User-Agent': 'CrosswordApp/1.0 (contact: jertom1@st.amu.edu.pl)' 
     }
 
-    try:
-        response = requests.get(url, params=params)
-        data = response.json()
-        pages = data.get("query", {}).get("pages", {})
+    for url in sources:
+        try:
+            response = requests.get(url, headers=headers, timeout=3)
+            if response.status_code == 200:
+                data = response.json()
+                extract = data.get("extract")
+                if extract:
+                    # Czyścimy tekst i bierzemy tylko pierwsze zdanie
+                    first_sentence = extract.split('.')[0] + "."
+                    if first_sentence not in suggestions:
+                        suggestions.append(first_sentence)
+        except:
+            continue
 
-        suggestions = []
-        for page_id in pages:
-            extract = pages[page_id].get("extract", "")
-            if extract:
-                # Wiktionary podaje definicje po numerach (np. 1.1, 1.2)
-                # Wyciągamy pierwsze kilka krótkich zdań
-                lines = [line.strip() for line in extract.split('\n') if line.strip()]
-                # Szukamy linii zaczynających się od znaczeń (np. "znaczenia: (1.1)...")
-                for line in lines:
-                    if "(1.1)" in line or "(1.2)" in line:
-                        clean_line = line.replace("(1.1)", "").replace("(1.2)", "").strip()
-                        if len(clean_line) > 5:
-                            suggestions.append(clean_line[:100] + "...")
-
-        return suggestions[:3]  # Zwracamy max 3 propozycje
-    except:
-        return []
+    return suggestions[:3]
