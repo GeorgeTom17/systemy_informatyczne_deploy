@@ -15,7 +15,7 @@ from utils.db_supabase import (
     update_set_content_in_db,
     get_set_metadata
 )
-from utils.api_manager import get_word_suggestions
+from utils.api_manager import get_complex_suggestions
 
 
 @st.dialog("Generator Losowej Krzyżówki")
@@ -174,15 +174,25 @@ def show_main_menu():
         st.divider()
 
         with st.expander("Asystent Definicji", expanded=False):
-            word_to_check = st.text_input("Wpisz słowo, aby otrzymać propozycje definicji:")
+            word_to_check = st.text_input("Wpisz słowo z tabeli:", placeholder="np. Jabłko")
+
             if word_to_check:
-                suggestions = get_word_suggestions(word_to_check)
-                if suggestions:
-                    st.write("Wybierz definicję, aby skopiować ją do schowka:")
-                    for sug in suggestions:
-                        st.code(sug)  # Wyświetla definicję w bloku do łatwego kopiowania
+                with st.spinner("Generuję definicje przez most angielski..."):
+                    # Używamy naszych kodów source_lang_code i target_lang_code
+                    results = get_complex_suggestions(word_to_check, source_lang_code, target_lang_code)
+
+                if results:
+                    st.write(f"Sugerowane definicje w języku **{tgt_lang_name}**:")
+                    for res in results:
+                        # Wyświetlamy część mowy i definicję
+                        label = "Rzeczownik" if res['pos'] == 'noun' else "Czasownik" if res[
+                                                                                             'pos'] == 'verb' else "Przymiotnik" if \
+                        res['pos'] == 'adjective' else res['pos']
+
+                        st.markdown(f"**[{label}]**")
+                        st.code(res['text'])  # Blok kodu ułatwia kopiowanie
                 else:
-                    st.info("Nie znaleziono propozycji. Wpisz własną definicję poniżej.")
+                    st.warning("Nie udało się wygenerować automatycznych definicji dla tego słowa.")
         st.info("Kliknij w komórkę, aby edytować. Zaznacz wiersz i naciśnij Delete, aby usunąć.")
         edited_df = st.data_editor(
             df,
