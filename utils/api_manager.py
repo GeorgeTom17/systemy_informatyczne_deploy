@@ -146,34 +146,34 @@ def get_words_from_conceptnet(category_name, lang_code, limit=40):
     }
 
     tag = CAT_MAP.get(category_name, "object")
-    # Ważne: ConceptNet używa formatu /c/pl/pies
-    url = f"http://api.conceptnet.io/c/{lang_code}/{tag}?rel=/r/RelatedTo&limit=100"
 
-    print(f"DEBUG: Próbuję pobrać słowa dla: {tag} w języku: {lang_code}")
+    # Używamy endpointu /search, który pozwala lepiej filtrować relacje i języki
+    # Szukamy słów, które mają relację 'RelatedTo' z naszym tagiem w konkretnym języku
+    url = f"http://api.conceptnet.io/search?rel=/r/RelatedTo&node=/c/en/{tag}&limit=100"
 
     try:
         response = requests.get(url, timeout=10)
         if response.status_code != 200:
-            print(f"DEBUG: Błąd API ConceptNet: {response.status_code}")
             return []
 
         res = response.json()
         raw_words = []
+
         for edge in res.get('edges', []):
-            # Sprawdzamy oba końce krawędzi grafu
-            for node in ['start', 'end']:
-                if edge[node].get('language') == lang_code:
-                    word = edge[node].get('label')
+            # Szukamy słowa w języku lang_code w krawędziach grafu
+            for node_type in ['start', 'end']:
+                node = edge[node_type]
+                if node.get('language') == lang_code:
+                    word = node.get('label')
+                    # Czyścimy słowo i sprawdzamy filtry (brak spacji, długość)
                     if word and re.match(r"^[a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ]{3,12}$", word):
-                        raw_words.append(word.upper())
+                        if word.lower() != tag.lower():
+                            raw_words.append(word.upper())
 
-        result = list(set(raw_words))
-        print(f"DEBUG: Znaleziono słów: {len(result)}")
-        return result
+        return list(set(raw_words))
     except Exception as e:
-        print(f"DEBUG: Wyjątek ConceptNet: {e}")
+        print(f"DEBUG: Błąd ConceptNet: {e}")
         return []
-
 
 def get_direct_wiktionary_definition(word, lang_code):
     """Pobiera definicję bezpośrednio z Wikisłownika w danym języku."""
