@@ -228,9 +228,7 @@ def get_refined_clue(word, src_lang, tgt_lang):
 
 
 def get_words_from_wikipedia(category_name, lang_code, limit=50):
-    """Pobiera listę haseł z konkretnej kategorii Wikipedii w danym języku."""
-
-    # ... (mapowanie CATEGORY_MAP pozostaje bez zmian) ...
+    # Mapowanie kategorii (bez zmian)
     CATEGORY_MAP = {
         "pl": {"Sport": "Kategoria:Dyscypliny_sportowe", "Jedzenie": "Kategoria:Potrawy",
                "Zwierzęta": "Kategoria:Zwierzęta", "Dom": "Kategoria:Wyposażenie_domu", "Praca": "Kategoria:Zawody",
@@ -250,40 +248,51 @@ def get_words_from_wikipedia(category_name, lang_code, limit=50):
     cat_title = lang_map.get(category_name, f"Category:{category_name}")
     url = f"https://{lang_code}.wikipedia.org/w/api.php"
 
+    # 1. KLUCZOWE: Dodajemy nagłówki identyfikujące aplikację
+    headers = {
+        "User-Agent": "KrzyzowkaEduApp/1.0 (jertom1@st.amu.edu.pl)",  # Wikipedia tego wymaga
+        "Accept": "application/json"
+    }
+
     params = {
         "action": "query",
         "list": "categorymembers",
         "cmtitle": cat_title,
         "cmlimit": 150,
-        "cmtype": "page|subcat",  # ZMIANA: Pobieramy strony ORAZ podkategorie
+        "cmtype": "page",
         "format": "json",
         "origin": "*"
     }
 
     try:
-        response = requests.get(url, params=params, timeout=10)
-        data = response.json()
+        # 2. Wykonujemy zapytanie z nagłówkami
+        response = requests.get(url, params=params, headers=headers, timeout=10)
 
-        # --- DEBUGGER WIDOCZNY W APCE ---
-        # st.write(f"DEBUG: Zapytanie do: {cat_title} ({lang_code})")
-        # st.json(data) # To pokaże Ci dokładnie, co przyszło z Wikipedii
-        # --------------------------------
-
-        members = data.get("query", {}).get("categorymembers", [])
-        if not members:
-            # Jeśli kategoria jest pusta, wypiszmy to
-            print(f"Brak członków w kategorii {cat_title}")
+        # 3. Sprawdzamy status HTTP (czy 200 OK)
+        if response.status_code != 200:
+            st.error(f"Wikipedia zwróciła błąd HTTP: {response.status_code}")
             return []
+
+        # 4. Sprawdzamy czy to na pewno JSON przed dekodowaniem
+        if "application/json" not in response.headers.get("Content-Type", ""):
+            st.error("Otrzymano format inny niż JSON (prawdopodobnie strona błędu HTML).")
+            # Wypiszmy początek odpowiedzi w logach, żeby zobaczyć co to jest
+            print(f"DEBUG: Otrzymana treść: {response.text[:200]}")
+            return []
+
+        data = response.json()
+        members = data.get("query", {}).get("categorymembers", [])
 
         valid_words = []
         for m in members:
             word = m['title']
-            # Filtracja
+            # Filtracja (tylko pojedyncze słowa, brak znaków specjalnych)
             if re.match(r"^[a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ]{3,12}$", word):
                 if ":" not in word:
                     valid_words.append(word.upper())
 
         return list(set(valid_words))
+
     except Exception as e:
         st.error(f"Błąd krytyczny API: {e}")
         return []
