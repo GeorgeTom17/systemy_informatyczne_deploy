@@ -1,6 +1,7 @@
 # utils/api_manager.py
 import requests
 import re
+import streamlit as st
 
 def get_word_suggestions(word):
     """Pobiera definicję z polskiej Wikipedii/Wikisłownika przez nowoczesne REST API."""
@@ -247,7 +248,6 @@ def get_words_from_wikipedia(category_name, lang_code, limit=50):
 
     lang_map = CATEGORY_MAP.get(lang_code, CATEGORY_MAP['en'])
     cat_title = lang_map.get(category_name, f"Category:{category_name}")
-
     url = f"https://{lang_code}.wikipedia.org/w/api.php"
 
     params = {
@@ -255,27 +255,35 @@ def get_words_from_wikipedia(category_name, lang_code, limit=50):
         "list": "categorymembers",
         "cmtitle": cat_title,
         "cmlimit": 150,
-        "cmtype": "page",
+        "cmtype": "page|subcat",  # ZMIANA: Pobieramy strony ORAZ podkategorie
         "format": "json",
         "origin": "*"
     }
 
     try:
-        # TUTAJ BYŁ BŁĄD - musimy dodać params=params
         response = requests.get(url, params=params, timeout=10)
-
         data = response.json()
+
+        # --- DEBUGGER WIDOCZNY W APCE ---
+        # st.write(f"DEBUG: Zapytanie do: {cat_title} ({lang_code})")
+        # st.json(data) # To pokaże Ci dokładnie, co przyszło z Wikipedii
+        # --------------------------------
+
         members = data.get("query", {}).get("categorymembers", [])
+        if not members:
+            # Jeśli kategoria jest pusta, wypiszmy to
+            print(f"Brak członków w kategorii {cat_title}")
+            return []
 
         valid_words = []
         for m in members:
             word = m['title']
-            # Filtracja słów (3-12 znaków, same litery)
+            # Filtracja
             if re.match(r"^[a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ]{3,12}$", word):
                 if ":" not in word:
                     valid_words.append(word.upper())
 
         return list(set(valid_words))
     except Exception as e:
-        print(f"Błąd Wikipedia API: {e}")
+        st.error(f"Błąd krytyczny API: {e}")
         return []
