@@ -14,6 +14,7 @@ from utils.db_supabase import (
     save_word_to_db,
     update_set_content_in_db
 )
+from utils.api_manager import get_word_suggestions
 
 
 @st.dialog("🎲 Generator Losowej Krzyżówki")
@@ -66,7 +67,7 @@ def open_random_generator_window():
 def show_main_menu():
     # --- Sidebar: Wybór zestawu ---
     with st.sidebar:
-        st.header("📂 Zarządzanie Zestawami")
+        st.header("Zarządzanie Zestawami")
 
         # Tworzenie nowego zestawu w DB
         new_set = st.text_input("Nowy zestaw:")
@@ -121,6 +122,17 @@ def show_main_menu():
             df = pd.DataFrame(columns=["word", "clue"])
 
         st.info("Kliknij w komórkę, aby edytować. Zaznacz wiersz i naciśnij Delete, aby usunąć.")
+
+        with st.expander("💡 Asystent Definicji (AI Sugestie)", expanded=False):
+            word_to_check = st.text_input("Wpisz słowo, aby otrzymać propozycje definicji:")
+            if word_to_check:
+                suggestions = get_word_suggestions(word_to_check)
+                if suggestions:
+                    st.write("Wybierz definicję, aby skopiować ją do schowka:")
+                    for sug in suggestions:
+                        st.code(sug)  # Wyświetla definicję w bloku do łatwego kopiowania
+                else:
+                    st.info("Nie znaleziono propozycji. Wpisz własną definicję poniżej.")
 
         edited_df = st.data_editor(
             df,

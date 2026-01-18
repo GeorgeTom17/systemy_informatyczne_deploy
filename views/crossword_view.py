@@ -259,7 +259,7 @@ def show_crossword_view(student_mode=False, session_name=None, student_name=None
                     parents = cell_parents.get((r, c), {})
                     p_across = parents.get('across', '')
                     p_down = parents.get('down', '')
-                    grid_html += f'<div class="cell input-cell"><input type="text" maxlength="1" id="input-{r}-{c}" data-row="{r}" data-col="{c}" data-correct="{correct_letter}" data-parent-across="{p_across}" data-parent-down="{p_down}"></div>'
+                    grid_html += f'<div class="cell input-cell"><input type="text" maxlength="1" id="input-{r}-{c}" data-row="{r}" data-col="{c}" data-correct="{correct_letter}" data-parent-across="{p_across}" data-parent-down="{p_down}" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"></div>'
 
         cell_size = (700 / ROWS) * 1.2
         full_html = f"""
