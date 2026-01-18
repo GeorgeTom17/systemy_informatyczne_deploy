@@ -89,3 +89,51 @@ def get_complex_suggestions(word, source_lang, target_lang):
     except Exception as e:
         print(f"Błąd API: {e}")
         return []
+
+
+def fetch_words_for_category(category_en, limit=50):
+    """Pobiera listę słów powiązanych z tematem z Datamuse API (po angielsku)."""
+    # ml = 'means like' - szuka słów powiązanych znaczeniowo
+    url = f"https://api.datamuse.com/words?ml={category_en}&max={limit}"
+    try:
+        response = requests.get(url, timeout=5)
+        if response.status_code == 200:
+            return [item['word'] for item in response.json() if ' ' not in item['word']]
+    except:
+        return []
+    return []
+
+
+def get_automated_clue(word_source, src_lang_code, tgt_lang_code):
+    """
+    Automatycznie generuje definicję:
+    1. Słowo -> Angielski
+    2. Angielski -> Definicja (English Dictionary)
+    3. Definicja -> Target Language
+    Jeśli krok 2 zawiedzie, zwraca po prostu tłumaczenie słowa.
+    """
+    from utils.api_manager import translate_text  # Twoja funkcja z poprzedniego kroku
+
+    # 1. Tłumaczymy słowo na angielski (pivot)
+    en_word = translate_text(word_source, src_lang_code, 'en')
+
+    # 2. Próbujemy pobrać pełną definicję po angielsku
+    clue = None
+    dict_url = f"https://api.dictionaryapi.dev/api/v2/entries/en/{en_word}"
+    try:
+        dict_res = requests.get(dict_url, timeout=3)
+        if dict_res.status_code == 200:
+            data = dict_res.json()[0]
+            # Bierzemy pierwszą dostępną definicję
+            raw_def = data.get('meanings', [{}])[0].get('definitions', [{}])[0].get('definition')
+            if raw_def:
+                # 3. Tłumaczymy definicję na język docelowy
+                clue = translate_text(raw_def, 'en', tgt_lang_code)
+    except:
+        pass
+
+    # Jeśli nie udało się uzyskać pełnej definicji, dajemy samo tłumaczenie
+    if not clue or len(clue) < 3:
+        clue = translate_text(word_source, src_lang_code, tgt_lang_code)
+
+    return clue.capitalize()

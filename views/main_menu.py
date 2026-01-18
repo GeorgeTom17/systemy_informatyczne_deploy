@@ -16,44 +16,71 @@ from utils.db_supabase import (
     get_set_metadata
 )
 from utils.api_manager import get_complex_suggestions
+from utils.api_manager import translate_text, fetch_words_for_category, get_automated_clue
+import random
 
 
 @st.dialog("Generator Losowej Krzyżówki")
 def open_random_generator_window():
-    st.write("Wybierz parametry, a my stworzymy dla Ciebie unikalną krzyżówkę!")
+    st.write("Wybierz kategorię, a ja przygotuję unikalny zestaw do nauki!")
+
+    LANG_MAP = {"Polski": "pl", "Angielski": "en", "Niemiecki": "de", "Hiszpański": "es", "Francuski": "fr"}
+    CATEGORIES = {
+        "Zwierzęta": "animals",
+        "Jedzenie": "food",
+        "Podróże": "travel",
+        "Technologia": "technology",
+        "Przyroda": "nature",
+        "Sport": "sport",
+        "Zdrowie": "health"
+    }
 
     c1, c2 = st.columns(2)
     with c1:
-        src_lang = st.selectbox("Język słów (Baza)", ["Angielski", "Niemiecki", "Francuski", "Hiszpański"])
+        src_lang = st.selectbox("Język haseł (do wpisania)", list(LANG_MAP.keys()), index=1)
     with c2:
-        tgt_lang = st.selectbox("Język podpowiedzi", ["Polski", "Angielski"])
+        tgt_lang = st.selectbox("Język podpowiedzi", list(LANG_MAP.keys()), index=0)
 
-    st.markdown("---")
-
-    mode = st.radio("Tryb generowania:", ["Kategorie tematyczne", "Top 100 najczęstszych słów"])
-
-    selected_category = None
-    if mode == "Kategorie tematyczne":
-        selected_category = st.selectbox("Wybierz kategorię:", ["Zwierzęta", "Jedzenie", "Podróże", "Dom", "Praca"])
-
-    limit = st.slider("Ile słów pobrać?", 5, 20, 10)
+    selected_category = st.selectbox("Wybierz kategorię tematyczną:", list(CATEGORIES.keys()))
+    limit = st.slider("Liczba słów w krzyżówce", 5, 15, 8)
 
     st.markdown("---")
 
     if st.button("Generuj i Graj", type="primary", use_container_width=True):
-        st.session_state.crossword_language = src_lang
-        with st.spinner("Pobieram słowa i tłumaczę..."):
-            words_data = fetch_random_words(src_lang, tgt_lang,
-                                            "category" if mode == "Kategorie tematyczne" else "top100",
-                                            selected_category, limit)
+        src_code = LANG_MAP[src_lang]
+        tgt_code = LANG_MAP[tgt_lang]
+        category_en = CATEGORIES[selected_category]
 
-            if not words_data:
-                st.error("Nie udało się pobrać słów. Spróbuj innej konfiguracji.")
-            else:
+        with st.spinner("Przeszukuję bazę wiedzy i buduję definicje..."):
+            # 1. Pobieramy dużą pulę słów po angielsku dla kategorii
+            raw_en_words = fetch_words_for_category(category_en, limit=40)
+
+            if not raw_en_words:
+                st.error("Błąd bazy danych słów. Spróbuj później.")
+                return
+
+            # 2. Losujemy podzbiór słów
+            chosen_en_words = random.sample(raw_en_words, min(len(raw_en_words), limit))
+
+            words_data = []
+            progress_bar = st.progress(0)
+
+            for i, en_word in enumerate(chosen_en_words):
+                # Tłumaczymy słowo na język haseł (np. en -> es)
+                word_in_src = translate_text(en_word, 'en', src_code).upper()
+
+                # Generujemy definicję (most angielski -> tgt_code)
+                clue = get_automated_clue(word_in_src, src_code, tgt_code)
+
+                words_data.append({"word": word_in_src, "clue": clue})
+                progress_bar.progress((i + 1) / len(chosen_en_words))
+
+            if words_data:
+                # Zapisujemy do pliku tymczasowego dla sesji
                 target_filename = "random_generated"
                 file_path = os.path.join(DATA_DIR, f"{target_filename}.json")
-
                 os.makedirs(DATA_DIR, exist_ok=True)
+
                 with open(file_path, "w", encoding="utf-8") as f:
                     json.dump(words_data, f, indent=4, ensure_ascii=False)
 
@@ -61,7 +88,6 @@ def open_random_generator_window():
                 st.session_state.current_view = 'crossword'
                 if 'crossword_data' in st.session_state:
                     del st.session_state['crossword_data']
-
                 st.rerun()
 
 
@@ -198,15 +224,24 @@ def show_main_menu():
 
                         with col_btn:
                             # PRZYCISK DODAWANIA
-                            if st.button("➕ Dodaj", key=f"add_sug_{i}"):
+                            if st.button("Dodaj", key=f"add_sug_{i}"):
                                 # Dodajemy nowy wiersz do stanu sesji
                                 new_row = {
                                     "word": word_to_check.upper(),
                                     "clue": res['text']
                                 }
                                 st.session_state.table_data.append(new_row)
-                                st.success("Dodano do tabeli!")
-                                st.rerun()  # Odświeżamy, by editor zobaczył nowy wiersz
+                                success = update_set_content_in_db(
+                                    current_set,
+                                    st.session_state.table_data,
+                                    source_lang_code,
+                                    target_lang_code
+                                )
+                                if success:
+                                    st.success("Dodano do tabeli!")
+                                    st.rerun()  # Odświeżamy, by editor zobaczył nowy wiersz
+                                else:
+                                    st.error("Słowo zostało dodane lokalnie, ale wystąpił błąd zapisu w bazie.")
                 else:
                     st.warning("Brak propozycji.")
 
