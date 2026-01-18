@@ -9,6 +9,26 @@ from utils.db_supabase import (
 from utils.qr_manager import generate_qr_image
 
 
+@st.fragment(run_every=2)
+def render_results_table_fragment(s_id):
+    """Odświeża tabelę oficjalnych wyników co 2 sekundy."""
+    from utils.db_supabase import get_results_for_session_from_db
+    import pandas as pd
+
+    results = get_results_for_session_from_db(s_id)
+    if results:
+        df = pd.DataFrame(results)
+        # Opcjonalnie: zmiana nazw kolumn na ładniejsze
+        df = df.rename(columns={
+            "student_name": "Uczeń",
+            "time_taken": "Czas",
+            "hint_count": "Podpowiedzi",
+            "submitted_at": "Data"
+        })
+        st.dataframe(df, use_container_width=True, hide_index=True)
+    else:
+        st.info("Nikt jeszcze nie ukończył krzyżówki.")
+
 @st.fragment(run_every=3)
 def render_live_ranking_fragment(s_id):
     live_scores = get_realtime_scores_from_db(s_id)
@@ -78,12 +98,8 @@ def show_sessions_view():
                 st.image(generate_qr_image(full_link), width=150)
 
             with tab_results:
-                results = get_results_for_session_from_db(s_id)
-                if results:
-                    df = pd.DataFrame(results)
-                    st.dataframe(df, use_container_width=True, hide_index=True)
-                else:
-                    st.info("Nikt jeszcze nie ukończył krzyżówki.")
+                st.subheader("Oficjalna tabela wyników")
+                render_results_table_fragment(s_id)
 
             with tab_live:
                 col_status, col_actions = st.columns([1, 1])

@@ -379,6 +379,16 @@ def show_crossword_view(student_mode=False, session_name=None, student_name=None
                         color: var(--hint-text-color);
                         background-color: #fcf8e3; /* Lekko żółte tło */
                     }}
+                    .input-cell input.highlight-word {{
+                        background-color: #e0f7fa !important; /* Bardzo jasny niebieski */
+                        transition: background-color 0.2s;
+                    }}
+                    
+                    /* Intensywniejszy kolor dla konkretnego pola, w którym jest kursor */
+                    .input-cell input:focus {{
+                        background-color: #b2ebf2 !important; 
+                        outline: 2px solid #00acc1;
+                    }}
                 </style>
                 </head>
                 <body>
@@ -625,12 +635,42 @@ def show_crossword_view(student_mode=False, session_name=None, student_name=None
                         }}
 
                         function checkAndJumpToNextWord() {{
-                            for (let w of wordOrder) {{
-                                let r = w.r; let c = w.c; let dir = w.dir;
-                                let dr = (dir === 'across') ? 0 : 1;
-                                let dc = (dir === 'across') ? 1 : 0;
-                                let isWordFull = true; let firstEmptyInput = null;
-                                let currR = r + dr; let currC = c + dc;
+                            if (!lastFocusedInput) {{
+                                // Jeśli nie ma fokusu, zachowaj stare zachowanie (zacznij od początku)
+                                currentIndex = -1;
+                            }} else {{
+                                // 1. Zidentyfikuj ID startowe bieżącego słowa (format: num-r-c)
+                                const parentId = lastFocusedInput.getAttribute(
+                                    currentDirection === 'across' ? 'data-parent-across' : 'data-parent-down'
+                                );
+                                
+                                if (!parentId) {{
+                                    currentIndex = -1;
+                                }} else {{
+                                    const parts = parentId.split('-');
+                                    const curR = parseInt(parts[1]);
+                                    const curC = parseInt(parts[2]);
+                                    
+                                    // Znajdź pozycję obecnego słowa w wordOrder
+                                    currentIndex = wordOrder.findIndex(w => w.r === curR && w.c === curC && w.dir === currentDirection);
+                                }}
+                            }}
+                        
+                            // 2. Szukaj następnego słowa, zaczynając od (currentIndex + 1)
+                            for (let i = 1; i <= wordOrder.length; i++) {{
+                                // Używamy modulo %, aby po dojściu do końca listy wrócić na początek
+                                let nextIndex = (currentIndex + i) % wordOrder.length;
+                                let w = wordOrder[nextIndex];
+                        
+                                let dr = (w.dir === 'across') ? 0 : 1;
+                                let dc = (w.dir === 'across') ? 1 : 0;
+                                let isWordFull = true; 
+                                let firstEmptyInput = null;
+                                
+                                // Zacznij sprawdzanie od pierwszej litery za numerkiem
+                                let currR = w.r + dr; 
+                                let currC = w.c + dc;
+                        
                                 while (true) {{
                                     let el = document.getElementById("input-" + currR + "-" + currC);
                                     if (!el) break;
@@ -638,10 +678,13 @@ def show_crossword_view(student_mode=False, session_name=None, student_name=None
                                         isWordFull = false;
                                         if (!firstEmptyInput) firstEmptyInput = el;
                                     }}
-                                    currR += dr; currC += dc;
+                                    currR += dr; 
+                                    currC += dc;
                                 }}
+                        
+                                // Jeśli znaleźliśmy słowo z wolnym miejscem, przenieś tam fokus
                                 if (!isWordFull && firstEmptyInput) {{
-                                    currentDirection = dir;
+                                    currentDirection = w.dir;
                                     firstEmptyInput.focus();
                                     return;
                                 }}
@@ -652,22 +695,46 @@ def show_crossword_view(student_mode=False, session_name=None, student_name=None
                             const input = e.target;
                             let r = parseInt(input.getAttribute('data-row'));
                             let c = parseInt(input.getAttribute('data-col'));
+                        
+                            // --- NOWOŚĆ: Obsługa spacji jako skoku do następnego słowa ---
+                            if (e.key === ' ' || e.code === 'Space') {{
+                                e.preventDefault(); // Zapobiegaj wpisaniu znaku spacji do inputa
+                                checkAndJumpToNextWord(); // Wywołaj funkcję przeskoku
+                                return;
+                            }}
+                        
+                            // Obsługa Backspace
                             if (e.key === 'Backspace') {{
                                 if (input.value.length === 0) {{
                                     if (currentDirection === 'across') c--;
                                     if (currentDirection === 'down') r--;
                                     const target = document.getElementById("input-" + r + "-" + c);
-                                    if (target) {{ e.preventDefault(); target.focus(); }}
+                                    if (target) {{ 
+                                        e.preventDefault(); 
+                                        target.focus(); 
+                                    }}
                                 }}
                                 return;
                             }}
+                        
+                            // Obsługa Strzałek
                             if (!['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) return;
+                            
                             if (e.key === 'ArrowUp') {{ r--; currentDirection = 'down'; }}
                             if (e.key === 'ArrowDown') {{ r++; currentDirection = 'down'; }}
                             if (e.key === 'ArrowLeft') {{ c--; currentDirection = 'across'; }}
                             if (e.key === 'ArrowRight') {{ c++; currentDirection = 'across'; }}
+                            
                             const target = document.getElementById("input-" + r + "-" + c);
-                            if (target) {{ e.preventDefault(); target.focus(); }}
+                            if (target) {{ 
+                                e.preventDefault(); 
+                                target.focus(); 
+                            }}
+                            setTimeout(() => {{
+                                if (document.activeElement.tagName === 'INPUT') {{
+                                    highlightCurrentWord(document.activeElement);
+                                }}
+                            }}, 10);
                         }}
 
                         function handleInput(e) {{
@@ -702,6 +769,32 @@ def show_crossword_view(student_mode=False, session_name=None, student_name=None
                             if (pAcross && !pDown) currentDirection = 'across';
                             if (!pAcross && pDown) currentDirection = 'down';
                             updateTooltip(input);
+                            highlightCurrentWord(input);
+                        }}
+                        
+                        function clearWordHighlight() {{
+                            document.querySelectorAll('.input-cell input').forEach(el => {{
+                                el.classList.remove('highlight-word');
+                            }});
+                        }}
+                        
+                        function highlightCurrentWord(input) {{
+                            clearWordHighlight();
+                            if (!input) return;
+                        
+                            const parentId = currentDirection === 'across' 
+                                ? input.getAttribute('data-parent-across') 
+                                : input.getAttribute('data-parent-down');
+                        
+                            if (parentId) {{
+                                const selector = currentDirection === 'across' 
+                                    ? `input[data-parent-across="${{parentId}}"]` 
+                                    : `input[data-parent-down="${{parentId}}"]`;
+                                
+                                document.querySelectorAll(selector).forEach(el => {{
+                                    el.classList.add('highlight-word');
+                                }});
+                            }}
                         }}
 
                         const inputs = document.querySelectorAll('input');
