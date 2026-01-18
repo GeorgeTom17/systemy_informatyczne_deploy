@@ -163,7 +163,6 @@ def show_main_menu():
                     index=target_index,
                     key="tgt_lang_{current_set}"
                 )
-
             # --- TUTAJ DODAJEMY MAPOWANIE NA KODY ISO ---
             source_lang_code = LANG_MAP[src_lang_name]
             target_lang_code = LANG_MAP[tgt_lang_name]
@@ -216,3 +215,4 @@ def show_main_menu():
                 else:
                     st.error("Wystąpił błąd podczas zapisu.")
         st.divider()
+        st.rerun()
