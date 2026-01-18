@@ -30,6 +30,30 @@ SPECIAL_CHARACTERS = {
 
 
 @st.fragment(run_every=2)
+def student_auto_finalizer(s_id, s_name):
+    """Sprawdza w bazie, czy uczeń ukończył zadanie w JS."""
+    from utils.db_supabase import get_supabase_client, save_result_to_db
+
+    supabase = get_supabase_client()
+    res = supabase.table("realtime_scores") \
+        .select("is_finished, completion_time, hint_count") \
+        .eq("session_id", s_id) \
+        .eq("student_name", s_name) \
+        .single().execute()
+
+    if res.data and res.data.get('is_finished'):
+        # Jeśli JS wysłał info o końcu, zapisujemy oficjalnie w tabeli results
+        final_time = res.data.get('completion_time')
+        hints = res.data.get('hint_count', 0)
+
+        success = save_result_to_db(s_id, s_name, final_time, hints)
+        if success:
+            # Usuwamy z tabeli live i odświeżamy widok na "Sukces"
+            supabase.table("realtime_scores").delete().eq("session_id", s_id).eq("student_name", s_name).execute()
+            st.session_state.result_submitted = True
+            st.rerun()
+
+@st.fragment(run_every=2)
 def render_student_rank_badge(s_id, s_name):
     """Wyświetla pozycję ucznia w rankingu, odświeżaną co 2 sekundy."""
     from utils.db_supabase import get_student_rank
@@ -157,8 +181,15 @@ def show_crossword_view(student_mode=False, session_name=None, student_name=None
         st.title(f"{display_name}")
         s_id = st.session_state.get('active_session_id')
         if s_id and student_name:
-            render_student_rank_badge(s_id, student_name)
+            if not st.session_state.get('result_submitted'):
+                student_auto_finalizer(s_id, student_name)
+                # Pokazujemy też badge z pozycją (można to połączyć w jeden fragment)
+                render_student_rank_badge(s_id, student_name)
+            else:
+                st.success("🎉 Gratulacje! Twoje zadanie zostało przesłane.")
+                st.balloons()
         st.caption(f"Powodzenia, **{student_name}**! Twoje wyniki są aktualizowane na żywo.")
+
 
     # ==================================================
     # 3. RENDEROWANIE
@@ -372,6 +403,35 @@ def show_crossword_view(student_mode=False, session_name=None, student_name=None
                         let currentScore = 0;
                         let correctLettersSet = new Set();
                         
+                        
+                        async function finalizeSessionAuto(finalTime) {{
+                            try {{
+                                const url = `${{supabaseUrl}}/rest/v1/realtime_scores?on_conflict=session_id,student_name`;
+                                await fetch(url, {{
+                                    method: 'POST',
+                                    headers: {{
+                                        'apikey': supabaseKey,
+                                        'Authorization': `Bearer ${{supabaseKey}}`,
+                                        'Content-Type': 'application/json',
+                                        'Prefer': 'resolution=merge-duplicates'
+                                    }},
+                                    body: JSON.stringify({{
+                                        session_id: sessionId,
+                                        student_name: studentName,
+                                        score: (correctCount * 10) - (hintCount * 5),
+                                        progress_percent: 100,
+                                        hint_count: hintCount,
+                                        is_finished: true,
+                                        completion_time: finalTime,
+                                        last_updated: new Date().toISOString()
+                                    }})
+                                }});
+                                console.log("Wynik przesłany automatycznie.");
+                            }} catch {{
+                                console.error("Błąd automatycznego przesyłania:", e);
+                            }}
+                        }}
+                        
                         async function syncRealtimeScore() {{
                         
                             if (isAlreadySubmitted || isSolved) {{
@@ -485,23 +545,22 @@ def show_crossword_view(student_mode=False, session_name=None, student_name=None
                             if (isSolved) return;
                             const inputs = document.querySelectorAll('input');
                             let errors = 0; let empty = 0;
-
+                        
                             inputs.forEach(input => {{
                                 const val = input.value.toUpperCase();
                                 const correct = input.getAttribute("data-correct");
-                                input.classList.remove("valid", "invalid");
-
-
                                 if (val.length === 0) {{ empty++; }}
-                                else if (val === correct) {{ input.classList.add("valid"); }}
-                                else {{ input.classList.add("invalid"); errors++; }}
+                                else if (val !== correct) {{ errors++; }}
                             }});
-
+                        
                             if (errors === 0 && empty === 0) {{
                                 isSolved = true;
                                 clearInterval(timerInterval);
                                 const finalTime = document.getElementById("timer").innerText;
-                                alert("Gratulacje! Czas: " + finalTime + "\\n💡 Podpowiedzi: " + hintCount);
+                                
+                                finalizeSessionAuto(finalTime);
+                                
+                                alert("Brawo! Krzyżówka rozwiązana w czasie: " + finalTime);
                             }}
                         }}
 
