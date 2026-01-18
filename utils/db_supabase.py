@@ -131,20 +131,33 @@ def save_word_to_db(word, clue, set_name):
         return False, f"Błąd bazy: {e}"
 
 
-def update_set_content_in_db(set_name, new_data):
+def update_set_content_in_db(set_name, new_data, source_lang, target_lang):
     supabase = get_supabase_client()
     try:
+        # 1. Pobieramy ID zestawu
         set_res = supabase.table("sets").select("id").eq("name", set_name).single().execute()
         set_id = set_res.data['id']
+
+        # 2. AKTUALIZACJA JĘZYKÓW (Metadane zestawu)
+        supabase.table("sets").update({
+            "source_lang": source_lang,
+            "target_lang": target_lang
+        }).eq("id", set_id).execute()
+
+        # 3. Usuwamy stare słowa
         supabase.table("words").delete().eq("set_id", set_id).execute()
+
+        # 4. Przygotowujemy nowe słowa do wstawienia
         to_insert = []
         for row in new_data:
+            # Używamy Twoich kluczy: 'word' i 'clue'
             if row.get('word') and row.get('clue'):
                 to_insert.append({
                     "set_id": set_id,
                     "word": str(row['word']).strip().upper(),
                     "clue": str(row['clue']).strip()
                 })
+
         if to_insert:
             supabase.table("words").insert(to_insert).execute()
 
@@ -263,3 +276,14 @@ def get_session_status(session_id):
         return response.data["status"] if response.data else "waiting"
     except:
         return "waiting"
+
+# utils/db_supabase.py
+
+def get_set_metadata(set_name):
+    """Pobiera informacje o językach przypisanych do zestawu."""
+    supabase = get_supabase_client()
+    try:
+        res = supabase.table("sets").select("source_lang, target_lang").eq("name", set_name).single().execute()
+        return res.data if res.data else {"source_lang": "pl", "target_lang": "en"}
+    except:
+        return {"source_lang": "pl", "target_lang": "en"} # Wartości domyślne

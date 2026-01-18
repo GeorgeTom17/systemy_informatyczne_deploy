@@ -12,12 +12,13 @@ from utils.db_supabase import (
     create_set_in_db,
     load_words_from_db,
     save_word_to_db,
-    update_set_content_in_db
+    update_set_content_in_db,
+    get_set_metadata
 )
 from utils.api_manager import get_word_suggestions
 
 
-@st.dialog("🎲 Generator Losowej Krzyżówki")
+@st.dialog("Generator Losowej Krzyżówki")
 def open_random_generator_window():
     st.write("Wybierz parametry, a my stworzymy dla Ciebie unikalną krzyżówkę!")
 
@@ -39,7 +40,7 @@ def open_random_generator_window():
 
     st.markdown("---")
 
-    if st.button("🚀 Generuj i Graj", type="primary", use_container_width=True):
+    if st.button("Generuj i Graj", type="primary", use_container_width=True):
         st.session_state.crossword_language = src_lang
         with st.spinner("Pobieram słowa i tłumaczę..."):
             words_data = fetch_random_words(src_lang, tgt_lang,
@@ -66,6 +67,14 @@ def open_random_generator_window():
 
 def show_main_menu():
     # --- Sidebar: Wybór zestawu ---
+    LANG_MAP = {
+        "Polski": "pl",
+        "Angielski": "en",
+        "Niemiecki": "de",
+        "Francuski": "fr",
+        "Hiszpański": "es",
+        "Włoski": "it"
+    }
     with st.sidebar:
         st.header("Zarządzanie Zestawami")
 
@@ -115,6 +124,20 @@ def show_main_menu():
     if current_set:
         st.header(f"Edytujesz zestaw: {current_set.upper()}")
         st.subheader("Podgląd zawartości")
+        set_meta = get_set_metadata(current_set)
+        db_source = set_meta.get('source_lang', 'pl')
+        db_target = set_meta.get('target_lang', 'en')
+        lang_names = list(LANG_MAP.keys())
+        lang_codes = list(LANG_MAP.values())
+        try:
+            source_index = lang_codes.index(db_source)
+        except ValueError:
+            source_index = 0
+
+        try:
+            target_index = lang_codes.index(db_target)
+        except ValueError:
+            target_index = 1  # Domyślnie Angielski
         words_data = load_words_from_db(current_set)
         df = pd.DataFrame(words_data)
 
@@ -123,7 +146,35 @@ def show_main_menu():
 
         st.info("Kliknij w komórkę, aby edytować. Zaznacz wiersz i naciśnij Delete, aby usunąć.")
 
-        with st.expander("💡 Asystent Definicji (AI Sugestie)", expanded=False):
+        st.subheader("🌐 Konfiguracja Językowa")
+        with st.container(border=True):
+            col_l1, col_l2 = st.columns(2)
+            with col_l1:
+                src_lang_name = st.selectbox(
+                    "Słowa w języku:",
+                    options=lang_names,
+                    index=source_index,
+                    key="src_lang_sel"
+                )
+            with col_l2:
+                tgt_lang_name = st.selectbox(
+                    "Definicje w języku:",
+                    options=lang_names,
+                    index=target_index,
+                    key="tgt_lang_sel"
+                )
+
+            # --- TUTAJ DODAJEMY MAPOWANIE NA KODY ISO ---
+            source_lang_code = LANG_MAP[src_lang_name]
+            target_lang_code = LANG_MAP[tgt_lang_name]
+            # --------------------------------------------
+
+            st.caption(
+                f"Kierunek nauki: **{src_lang_name}** ({source_lang_code}) ➡️ **{tgt_lang_name}** ({target_lang_code})")
+
+        st.divider()
+
+        with st.expander("Asystent Definicji", expanded=False):
             word_to_check = st.text_input("Wpisz słowo, aby otrzymać propozycje definicji:")
             if word_to_check:
                 suggestions = get_word_suggestions(word_to_check)
@@ -159,8 +210,9 @@ def show_main_menu():
         with col_save:
             if st.button("Zapisz zmiany w tabeli", type="primary"):
                 new_data = edited_df.to_dict('records')
-                if update_set_content_in_db(current_set, new_data):
-                    st.toast("Zestaw został zaktualizowany!")
+                # Teraz source_lang_code i target_lang_code są już zdefiniowane!
+                if update_set_content_in_db(current_set, new_data, source_lang_code, target_lang_code):
+                    st.toast("Zestaw oraz języki zostały zaktualizowane!")
                 else:
                     st.error("Wystąpił błąd podczas zapisu.")
         st.divider()

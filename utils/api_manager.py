@@ -16,7 +16,7 @@ def get_word_suggestions(word):
     suggestions = []
 
     headers = {
-        'User-Agent': 'CrosswordApp/1.0 (contact: jertom1@st.amu.edu.pl)' 
+        'User-Agent': 'CrosswordApp/1.0 (contact: jertom1@st.amu.edu.pl)'
     }
 
     for url in sources:
