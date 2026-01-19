@@ -437,6 +437,32 @@ def show_crossword_view(student_mode=False, session_name=None, student_name=None
                         let currentScore = 0;
                         let correctLettersSet = new Set();
                         
+                        async function logEasyWords() {{
+                            const inputs = document.querySelectorAll('input');
+                            const easyWords = new Set();
+                        
+                            inputs.forEach(input => {{
+                                // Jeśli pole jest wypełnione i NIE ma klasy 'hint-used'
+                                if (input.value.toUpperCase() === input.getAttribute("data-correct") && 
+                                    !input.classList.contains('hint-used')) {{
+                                    
+                                    // Pobieramy ID startowe słowa (nadrzędną komórkę z numerem)
+                                    const parentId = currentDirection === 'across' ? 
+                                                     input.getAttribute('data-parent-across') : 
+                                                     input.getAttribute('data-parent-down');
+                                    
+                                    if (parentId) {{
+                                        const numCell = document.getElementById(parentId);
+                                        const word = input.getAttribute("data-correct"); // Uproszczenie: logujemy litery jako część słowa
+                                        const clue = numCell ? numCell.querySelector('.tooltip').innerText : "";
+                                        
+                                        // Wysyłamy do tabeli ML jako ŁATWE
+                                        reportDifficulty(word, clue, "ŁATWE");
+                                    }}
+                                }}
+                            }});
+                        }}
+                        
                         async function logWordDifficulty(word, clue, label) {{
                             try {{
                                 const url = `${{supabaseUrl}}/rest/v1/ml_training_data`;
@@ -633,6 +659,7 @@ def show_crossword_view(student_mode=False, session_name=None, student_name=None
                             if (errors === 0 && empty === 0) {{
                                 isSolved = true;
                                 clearInterval(timerInterval);
+                                logEasyWords();
                                 const finalTime = document.getElementById("timer").innerText;
                                 
                                 // WYŚLIJ DO BAZY

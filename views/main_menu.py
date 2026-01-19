@@ -271,21 +271,10 @@ def show_main_menu():
             st.session_state.table_data = pd.DataFrame(columns=["word", "clue"])
 
         # 3. Teraz sprawdzenie .empty zadziała poprawnie
-        if not st.session_state.table_data.empty:
-            # Tutaj Twój kod analizy AI
-            words_list = st.session_state.table_data.to_dict('records')
-            set_difficulty = ai_engine.get_set_difficulty(words_list,
-                                                          st.session_state.get('crossword_language', 'Polski'))
-            st.metric("Trudność zestawu (AI)", set_difficulty)
-
-            # Opcjonalnie: Wykres rozkładu
-            #st.bar_chart(difficulty_distribution)
-        else:
-            st.info("Dodaj słowa, aby AI mogło ocenić trudność.")
 
         current_lang = st.session_state.get('crossword_language', 'Polski')
 
-        st.subheader(f"Edycja zestawu: {current_set}")
+
 
 
 
@@ -305,6 +294,7 @@ def show_main_menu():
                 st.caption("Model analizuje długość słów, unikalne znaki oraz definicje, "
                            "ucząc się na błędach uczniów zapisanych w bazie.")
 
+        st.subheader(f"Edycja zestawu: {current_set}")
         # 3. TWÓJ EDYTOR
         edited_df = st.data_editor(
             st.session_state.table_data,
