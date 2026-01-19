@@ -22,7 +22,7 @@ from utils.db_supabase import (
 from utils.api_manager import get_complex_suggestions
 from utils.api_manager import translate_text, fetch_words_for_category, get_automated_clue, get_words_from_conceptnet, get_refined_clue, get_words_from_wikipedia
 import random
-
+from utils.ml_engine import ai_engine
 
 @st.dialog("Generator Losowej Krzyżówki")
 def open_random_generator_window():
@@ -262,6 +262,24 @@ def show_main_menu():
                     st.warning("Brak propozycji.")
 
         st.divider()
+        words = st.session_state.get('edit_set_words', [])
+        current_lang = st.session_state.get('edit_set_lang', 'Polski')
+
+        # PANEL TRUDNOŚCI AI
+        st.markdown("---")
+        st.subheader("Analiza AI")
+
+        if words:
+            # Wywołujemy model
+            difficulty = ai_engine.get_set_difficulty(words, current_lang)
+
+            st.metric("Przewidywana trudność", difficulty)
+
+            # Opcjonalnie: Wykres rozkładu
+            #st.bar_chart(difficulty_distribution)
+        else:
+            st.info("Dodaj słowa, aby AI mogło ocenić trudność.")
+
         st.info("Kliknij w komórkę, aby edytować. Zaznacz wiersz i naciśnij Delete, aby usunąć.")
         edited_df = st.data_editor(
             st.session_state.table_data,

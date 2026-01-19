@@ -6,7 +6,6 @@ import os
 from utils.db_manager import fetch_training_data
 from utils.db_supabase import fetch_ml_data_from_supabase
 
-
 LANG_CHARSETS = {
     "Polski": "ĄĆĘŁŃÓŚŹŻąćęłńóśźż",
     "Niemiecki": "ÄÖÜßäöüß",
@@ -67,28 +66,62 @@ class DifficultyModel:
 
         return [length, spec_count, vowel_ratio, similarity]
 
-    def train(self, local_data=None):
-        """
-        Teraz łączy dane startowe (wbudowane) z danymi z BAZY (Google Sheets).
-        """
+    def train(self):
+        """Pobiera surowe dane o błędach i zamienia je na zestaw treningowy."""
         all_data = INITIAL_DATA.copy()
 
-        # 2. Pobieramy wiedzę z Supabase
-        cloud_data = fetch_ml_data_from_supabase()
-        if cloud_data:
-            all_data.extend(cloud_data)
+        # 1. Pobieramy logi błędów od uczniów
+        raw_logs = fetch_ml_data_from_supabase()  # Musi zwracać listę słowników
 
-        X = []
-        y = []
+        if raw_logs:
+            # Agregujemy błędy per słowo
+            df_logs = pd.DataFrame(raw_logs)
+            if not df_logs.empty:
+                # Grupowanie: suma błędów dla danej pary słowo-klucz
+                agg_logs = df_logs.groupby(['word', 'clue', 'language'])['error_count'].sum().reset_index()
 
+                for _, row in agg_logs.iterrows():
+                    # LOGIKA ETYKIETOWANIA:
+                    # > 10 błędów = TRUDNE, 3-10 = ŚREDNIE, < 3 = ŁATWE
+                    if row['error_count'] > 10:
+                        label = "TRUDNE"
+                    elif row['error_count'] > 3:
+                        label = "ŚREDNIE"
+                    else:
+                        label = "ŁATWE"
+
+                    all_data.append((row['word'], row['clue'], row['language'], label))
+
+        # 2. Trening modelu
+        X, y = [], []
         for word, clue, lang, label in all_data:
-            features = self.extract_features(word, clue, lang)
-            X.append(features)
+            X.append(self.extract_features(word, clue, lang))
             y.append(label)
 
-        self.model.fit(X, y)
-        self.is_trained = True
-        return self.model.score(X, y)
+        if len(X) > 0:
+            self.model.fit(X, y)
+            self.is_trained = True
+            return True
+        return False
+
+    def get_set_difficulty(self, words_list, lang="Polski"):
+        """Ocenia cały zestaw słów."""
+        if not self.is_trained: self.train()
+
+        results = {"ŁATWE": 0, "ŚREDNIE": 0, "TRUDNE": 0}
+        for item in words_list:
+            pred, _, _ = self.predict(item['word'], item['clue'], lang)
+            results[pred] += 1
+
+        # Obliczamy średnią ważoną lub zwracamy dominującą kategorię
+        total = len(words_list)
+        if total == 0: return "Brak słów"
+
+        # Prosta logika punktowa
+        score = (results["ŁATWE"] * 1 + results["ŚREDNIE"] * 2 + results["TRUDNE"] * 3) / total
+        if score < 1.5: return "ŁATWY"
+        if score < 2.5: return "ŚREDNI"
+        return "TRUDNY"
 
     def predict(self, word, clue="", lang="Polski"):
         if not self.is_trained:

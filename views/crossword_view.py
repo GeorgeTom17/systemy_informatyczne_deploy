@@ -450,6 +450,25 @@ def show_crossword_view(student_mode=False, session_name=None, student_name=None
                         let currentScore = 0;
                         let correctLettersSet = new Set();
                         
+                        async function logWordDifficulty(word, clue) {{
+                            try {{
+                                const url = `${{supabaseUrl}}/rest/v1/ml_training_data`;
+                                await fetch(url, {{
+                                    method: 'POST',
+                                    headers: {{
+                                        'apikey': supabaseKey,
+                                        'Authorization': `Bearer ${{supabaseKey}}`,
+                                        'Content-Type': 'application/json'
+                                    }},
+                                    body: JSON.stringify({{
+                                        word: word.toUpperCase(),
+                                        clue: clue,
+                                        language: "{{current_lang}}",
+                                        error_count: 1 // Każda podpowiedź to punkt trudności
+                                    }})
+                                }});
+                            }} catch (e) {{ console.error("ML Log Error:", e); }}
+                        }}
                         
                         async function finalizeSessionAuto(finalTime) {{
                             // Musimy przeliczyć poprawne odpowiedzi na miejscu, by mieć pewność danych
@@ -559,6 +578,8 @@ def show_crossword_view(student_mode=False, session_name=None, student_name=None
                             }}
 
                             const correct = lastFocusedInput.getAttribute("data-correct");
+                            const wordText = lastFocusedInput.getAttribute("data-parent-across") || lastFocusedInput.getAttribute("data-parent-down");
+                            logWordDifficulty(correct, "Użyto podpowiedzi");
                             if (lastFocusedInput.value.toUpperCase() === correct) {{
                                 return;
                             }}
