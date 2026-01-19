@@ -437,7 +437,7 @@ def show_crossword_view(student_mode=False, session_name=None, student_name=None
                         let currentScore = 0;
                         let correctLettersSet = new Set();
                         
-                        async function logWordDifficulty(word, clue) {{
+                        async function logWordDifficulty(word, clue, label) {{
                             try {{
                                 const url = `${{supabaseUrl}}/rest/v1/ml_training_data`;
                                 await fetch(url, {{
@@ -445,13 +445,14 @@ def show_crossword_view(student_mode=False, session_name=None, student_name=None
                                     headers: {{
                                         'apikey': supabaseKey,
                                         'Authorization': `Bearer ${{supabaseKey}}`,
-                                        'Content-Type': 'application/json'
+                                        'Content-Type': 'application/json',
+                                        'Prefer': 'return=minimal'
                                     }},
                                     body: JSON.stringify({{
                                         word: word.toUpperCase(),
                                         clue: clue,
                                         language: "{{current_lang}}",
-                                        error_count: 1 // Każda podpowiedź to punkt trudności
+                                        error_count: label // Każda podpowiedź to punkt trudności
                                     }})
                                 }});
                             }} catch (e) {{ console.error("ML Log Error:", e); }}
@@ -566,7 +567,8 @@ def show_crossword_view(student_mode=False, session_name=None, student_name=None
 
                             const correct = lastFocusedInput.getAttribute("data-correct");
                             const wordText = lastFocusedInput.getAttribute("data-parent-across") || lastFocusedInput.getAttribute("data-parent-down");
-                            logWordDifficulty(correct, "Użyto podpowiedzi");
+                            const wordClue = lastFocusedInput.closest('.cell').querySelector('.tooltip')?.innerText || "";
+                            logWordDifficulty(correct, wordClue, "TRUDNE");
                             if (lastFocusedInput.value.toUpperCase() === correct) {{
                                 return;
                             }}

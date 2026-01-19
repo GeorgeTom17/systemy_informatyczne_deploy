@@ -67,42 +67,39 @@ class DifficultyModel:
         return [length, spec_count, vowel_ratio, similarity]
 
     def train(self):
-        """Pobiera surowe dane o błędach i zamienia je na zestaw treningowy."""
+        """Pobiera dane z tabeli ml_training_data i trenuje model."""
+        # 1. Startujemy od danych bazowych
         all_data = INITIAL_DATA.copy()
 
-        # 1. Pobieramy logi błędów od uczniów
-        raw_logs = fetch_ml_data_from_supabase()  # Musi zwracać listę słowników
+        # 2. Pobieramy dane z Supabase (tabela: ml_training_data)
+        try:
+            cloud_data = fetch_ml_data_from_supabase() # Musi zwracać listę (word, clue, lang, label)
+            if cloud_data:
+                # cloud_data to lista słowników: [{'word': '...', 'label': '...'}, ...]
+                for record in cloud_data:
+                    all_data.append((
+                        record['word'],
+                        record['clue'],
+                        record['language'],
+                        record['label']
+                    ))
+        except Exception as e:
+            print(f"Błąd pobierania danych treningowych: {e}")
 
-        if raw_logs:
-            # Agregujemy błędy per słowo
-            df_logs = pd.DataFrame(raw_logs)
-            if not df_logs.empty:
-                # Grupowanie: suma błędów dla danej pary słowo-klucz
-                agg_logs = df_logs.groupby(['word', 'clue', 'language'])['error_count'].sum().reset_index()
+        if not all_data:
+            return 0
 
-                for _, row in agg_logs.iterrows():
-                    # LOGIKA ETYKIETOWANIA:
-                    # > 10 błędów = TRUDNE, 3-10 = ŚREDNIE, < 3 = ŁATWE
-                    if row['error_count'] > 10:
-                        label = "TRUDNE"
-                    elif row['error_count'] > 3:
-                        label = "ŚREDNIE"
-                    else:
-                        label = "ŁATWE"
+        X = []
+        y = []
 
-                    all_data.append((row['word'], row['clue'], row['language'], label))
-
-        # 2. Trening modelu
-        X, y = [], []
         for word, clue, lang, label in all_data:
-            X.append(self.extract_features(word, clue, lang))
+            features = self.extract_features(word, clue, lang)
+            X.append(features)
             y.append(label)
 
-        if len(X) > 0:
-            self.model.fit(X, y)
-            self.is_trained = True
-            return True
-        return False
+        self.model.fit(X, y)
+        self.is_trained = True
+        return self.model.score(X, y)
 
     def get_set_difficulty(self, words_list, lang="Polski"):
         """Ocenia cały zestaw słów."""
