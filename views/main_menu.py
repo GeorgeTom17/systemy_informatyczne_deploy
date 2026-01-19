@@ -261,17 +261,22 @@ def show_main_menu():
                 else:
                     st.warning("Brak propozycji.")
 
-        words = st.session_state.get('edit_set_words', [])
-        current_lang = st.session_state.get('edit_set_lang', 'Polski')
+        raw_words = load_words_from_db(current_set)
 
-        # PANEL TRUDNOŚCI AI
-        st.subheader("Analiza AI")
+        # 2. Inicjalizacja table_data jako DataFrame - to zapobiegnie błędowi .empty
+        if raw_words:
+            st.session_state.table_data = pd.DataFrame(raw_words)[["word", "clue"]]
+        else:
+            # Tworzymy pusty DF z odpowiednimi kolumnami, jeśli zestaw jest nowy/pusty
+            st.session_state.table_data = pd.DataFrame(columns=["word", "clue"])
 
-        if words:
-            # Wywołujemy model
-            difficulty = ai_engine.get_set_difficulty(words, current_lang)
-
-            st.metric("Przewidywana trudność", difficulty)
+        # 3. Teraz sprawdzenie .empty zadziała poprawnie
+        if not st.session_state.table_data.empty:
+            # Tutaj Twój kod analizy AI
+            words_list = st.session_state.table_data.to_dict('records')
+            set_difficulty = ai_engine.get_set_difficulty(words_list,
+                                                          st.session_state.get('crossword_language', 'Polski'))
+            st.metric("Trudność zestawu (AI)", set_difficulty)
 
             # Opcjonalnie: Wykres rozkładu
             #st.bar_chart(difficulty_distribution)
@@ -281,6 +286,8 @@ def show_main_menu():
         current_lang = st.session_state.get('crossword_language', 'Polski')
 
         st.subheader(f"Edycja zestawu: {current_set}")
+
+
 
         # 2. PANEL ANALITYCZNY AI (wyświetlany nad edytorem)
         # Obliczamy trudność na podstawie tego, co jest obecnie w sesji
