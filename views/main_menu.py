@@ -261,12 +261,10 @@ def show_main_menu():
                 else:
                     st.warning("Brak propozycji.")
 
-        st.divider()
         words = st.session_state.get('edit_set_words', [])
         current_lang = st.session_state.get('edit_set_lang', 'Polski')
 
         # PANEL TRUDNOŚCI AI
-        st.markdown("---")
         st.subheader("Analiza AI")
 
         if words:

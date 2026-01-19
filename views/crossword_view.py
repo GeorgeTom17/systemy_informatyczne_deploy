@@ -40,10 +40,10 @@ def student_auto_finalizer(s_id, s_name):
     supabase = get_supabase_client()
 
     # Pobieramy rekord ucznia z tabeli LIVE
-    res = supabase.table("realtime_scores")\
-        .select("is_finished, completion_time, hint_count")\
-        .eq("session_id", s_id)\
-        .eq("student_name", s_name)\
+    res = supabase.table("realtime_scores") \
+        .select("is_finished, completion_time, hint_count") \
+        .eq("session_id", s_id) \
+        .eq("student_name", s_name) \
         .execute()
 
     if res.data and len(res.data) > 0:
@@ -59,13 +59,14 @@ def student_auto_finalizer(s_id, s_name):
 
             if success:
                 # 2. Usuwamy z tabeli LIVE (żeby czujka nie kręciła się w nieskończoność)
-                supabase.table("realtime_scores").delete()\
-                    .eq("session_id", s_id)\
+                supabase.table("realtime_scores").delete() \
+                    .eq("session_id", s_id) \
                     .eq("student_name", s_name).execute()
 
                 # 3. Zmieniamy stan aplikacji, co wyłączy iframe i pokaże gratulacje
                 st.session_state.result_submitted = True
                 st.rerun()
+
 
 @st.fragment(run_every=2)
 def render_student_rank_badge(s_id, s_name):
@@ -186,20 +187,7 @@ def show_crossword_view(student_mode=False, session_name=None, student_name=None
                 st.session_state.last_set = selected_set
 
                 # Czyścimy dane AI, aby przeliczyły się dla nowego zestawu
-                if 'difficulty_stats' in st.session_state:
-                    del st.session_state.difficulty_stats
 
-            # 5. Analiza trudności AI (tylko dla nowo wylosowanych słów)
-            current_lang_for_ml = st.session_state.get('crossword_language', 'Polski')
-            difficulty_report = {"ŁATWE": 0, "ŚREDNIE": 0, "TRUDNE": 0}
-
-            for item in selection:
-                word = item['word']
-                clue = item['clue']
-                pred, _, _ = ai_engine.predict(word, clue, current_lang_for_ml)
-                difficulty_report[pred] += 1
-
-            st.session_state.difficulty_stats = difficulty_report
 
     else:
         if 'crossword_data' not in st.session_state:
@@ -219,7 +207,6 @@ def show_crossword_view(student_mode=False, session_name=None, student_name=None
                 st.success("🎉 Gratulacje! Twoje zadanie zostało przesłane.")
                 st.balloons()
         st.caption(f"Powodzenia, **{student_name}**! Twoje wyniki są aktualizowane na żywo.")
-
 
     # ==================================================
     # 3. RENDEROWANIE
