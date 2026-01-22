@@ -261,41 +261,9 @@ def show_main_menu():
                 else:
                     st.warning("Brak propozycji.")
 
-        raw_words = load_words_from_db(current_set)
+        st.divider()
+        st.info("Kliknij w komórkę, aby edytować. Zaznacz wiersz i naciśnij Delete, aby usunąć.")
 
-        # 2. Inicjalizacja table_data jako DataFrame - to zapobiegnie błędowi .empty
-        if raw_words:
-            st.session_state.table_data = pd.DataFrame(raw_words)[["word", "clue"]]
-        else:
-            # Tworzymy pusty DF z odpowiednimi kolumnami, jeśli zestaw jest nowy/pusty
-            st.session_state.table_data = pd.DataFrame(columns=["word", "clue"])
-
-        # 3. Teraz sprawdzenie .empty zadziała poprawnie
-
-        current_lang = st.session_state.get('crossword_language', 'Polski')
-
-
-
-
-
-        # 2. PANEL ANALITYCZNY AI (wyświetlany nad edytorem)
-        # Obliczamy trudność na podstawie tego, co jest obecnie w sesji
-        if not st.session_state.table_data.empty:
-            # Wywołujemy ocenę całego zestawu
-            # Konwertujemy dataframe na listę słowników dla modelu
-            words_list = st.session_state.table_data.to_dict('records')
-            set_difficulty = ai_engine.get_set_difficulty(words_list, current_lang)
-
-            # Wyświetlenie metryki
-            col_ai, col_info = st.columns([1, 3])
-            with col_ai:
-                st.metric("Trudność zestawu (AI)", set_difficulty)
-            with col_info:
-                st.caption("Model analizuje długość słów, unikalne znaki oraz definicje, "
-                           "ucząc się na błędach uczniów zapisanych w bazie.")
-
-        st.subheader(f"Edycja zestawu: {current_set}")
-        # 3. TWÓJ EDYTOR
         edited_df = st.data_editor(
             st.session_state.table_data,
             column_config={
@@ -307,13 +275,6 @@ def show_main_menu():
             key=f"editor_{current_set}",
             hide_index=True
         )
-
-        # 4. AKTUALIZACJA I REAKCJA
-        if not edited_df.equals(st.session_state.table_data):
-            st.session_state.table_data = edited_df
-            # Streamlit automatycznie przeładuje stronę,
-            # a metryka na górze zaktualizuje się dzięki nowym danym!
-            st.rerun()
 
         col_save, col_delete, col_info = st.columns([1, 1, 3])
         with col_save:
