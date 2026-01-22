@@ -282,7 +282,8 @@ def show_main_menu():
             if st.button("Zapisz zmiany w tabeli", type="primary"):
                 new_data = edited_df.to_dict('records')
                 # Teraz source_lang_code i target_lang_code są już zdefiniowane!
-                st.session_state.table_data.append(new_data)
+                for new_datum in new_data:
+                    st.session_state.table_data.append(new_datum)
                 success = update_set_content_in_db(
                     current_set,
                     st.session_state.table_data,
