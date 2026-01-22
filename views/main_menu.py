@@ -283,7 +283,7 @@ def show_main_menu():
                 new_data = edited_df.to_dict('records')
                 # Teraz source_lang_code i target_lang_code są już zdefiniowane!
                 for new_datum in new_data:
-                    st.info(new_datum)
+                    print(new_datum)
                     st.session_state.table_data.append(new_datum)
                 success = update_set_content_in_db(
                     current_set,
