@@ -282,12 +282,17 @@ def show_main_menu():
             if st.button("Zapisz zmiany w tabeli", type="primary"):
                 new_data = edited_df.to_dict('records')
                 # Teraz source_lang_code i target_lang_code są już zdefiniowane!
-                if update_set_content_in_db(current_set, new_data, source_lang_code, target_lang_code):
-                    st.session_state.table_data = new_data  # Aktualizujemy stan lokalny
-                    st.toast("Zestaw oraz języki zostały zaktualizowane!")
-                else:
-                    st.error("Wystąpił błąd podczas zapisu.")
-                pass
+                st.session_state.table_data.append(new_data)
+                success = update_set_content_in_db(
+                    current_set,
+                    st.session_state.table_data,
+                    source_lang_code,
+                    target_lang_code
+                )
+                if success:
+                    st.success("Dodano do tabeli!")
+                    word_to_check = ""
+                    st.rerun()  # Odświeżamy, by editor zobaczył nowy wiersz
         with col_delete:
             # Dodajemy przycisk usuwania z potwierdzeniem
             if st.button("🗑️ Usuń zestaw", type="secondary", use_container_width=True):
