@@ -255,6 +255,7 @@ def show_main_menu():
                                 )
                                 if success:
                                     st.success("Dodano do tabeli!")
+                                    word_to_check = ""
                                     st.rerun()  # Odświeżamy, by editor zobaczył nowy wiersz
                                 else:
                                     st.error("Słowo zostało dodane lokalnie, ale wystąpił błąd zapisu w bazie.")
