@@ -246,7 +246,7 @@ def show_main_menu():
                                     "word": word_to_check.upper(),
                                     "clue": res['text']
                                 }
-                                st.session_state.table_data = st.session_state.table_data.concat([df, pd.DataFrame([new_row])], ignore_index=True)
+                                st.session_state.table_data.append(new_row)
                                 success = update_set_content_in_db(
                                     current_set,
                                     st.session_state.table_data,
