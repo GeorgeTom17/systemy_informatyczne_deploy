@@ -167,7 +167,7 @@ def show_main_menu():
             current_set = None
 
     if current_set:
-
+        words_data = []
         if 'last_set' not in st.session_state or st.session_state.last_set != current_set:
             words_data = load_words_from_db(current_set)
             st.session_state.table_data = words_data if words_data else []
@@ -186,7 +186,6 @@ def show_main_menu():
             target_index = lang_codes.index(db_target)
         except ValueError:
             target_index = 1  # Domyślnie Angielski
-        words_data = load_words_from_db(current_set)
         df = pd.DataFrame(words_data)
 
         if df.empty:
@@ -280,23 +279,24 @@ def show_main_menu():
         col_save, col_delete, col_info = st.columns([1, 1, 3])
         with col_save:
             if st.button("Zapisz zmiany w tabeli", type="primary"):
-                new_data = edited_df.to_dict('records')
-                # Teraz source_lang_code i target_lang_code są już zdefiniowane!
-                for new_datum in new_data:
-                    print(new_datum)
-                    st.session_state.table_data.append(new_datum)
+                # 1. Pobieramy "czystą" listę słowników prosto z edytora (wszystkie wiersze)
+                new_data_list = edited_df.to_dict('records')
+
+                # 2. Wysyłamy tę listę prosto do bazy danych
                 success = update_set_content_in_db(
                     current_set,
-                    st.session_state.table_data,
+                    new_data_list,  # Świeże dane z ekranu
                     source_lang_code,
                     target_lang_code
                 )
+
                 if success:
-                    st.success("Dodano do tabeli!")
-                    word_to_check = ""
-                    st.rerun()  # Odświeżamy, by editor zobaczył nowy wiersz
+                    # 3. Aktualizujemy stan sesji, aby był spójny z tym, co wysłaliśmy
+                    st.session_state.table_data = edited_df
+                    st.success("Zapisano zmiany w bazie danych!")
+                    st.rerun()
                 else:
-                    st.error("Błąd zapisu do bazy")
+                    st.error("Błąd zapisu do bazy danych.")
         with col_delete:
             # Dodajemy przycisk usuwania z potwierdzeniem
             if st.button("🗑️ Usuń zestaw", type="secondary", use_container_width=True):
