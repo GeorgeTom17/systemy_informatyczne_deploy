@@ -24,22 +24,20 @@ from utils.api_manager import translate_text, fetch_words_for_category, get_auto
 import random
 from utils.ml_engine import ai_engine
 
-LANG_MAP = {"Polski": "pl", "Angielski": "en", "Niemiecki": "de", "Hiszpański": "es", "Francuski": "fr"}
-CATEGORIES = {
-    "Zwierzęta": "animals",
-    "Jedzenie": "food",
-    "Podróże": "travel",
-    "Technologia": "technology",
-    "Przyroda": "nature",
-    "Sport": "sport",
-    "Zdrowie": "health"
-}
-
 @st.dialog("Generator Losowej Krzyżówki")
 def open_random_generator_window():
     st.write("Wybierz kategorię, a ja przygotuję unikalny zestaw do nauki!")
 
-
+    LANG_MAP = {"Polski": "pl", "Angielski": "en", "Niemiecki": "de", "Hiszpański": "es", "Francuski": "fr"}
+    CATEGORIES = {
+        "Zwierzęta": "animals",
+        "Jedzenie": "food",
+        "Podróże": "travel",
+        "Technologia": "technology",
+        "Przyroda": "nature",
+        "Sport": "sport",
+        "Zdrowie": "health"
+    }
 
     c1, c2 = st.columns(2)
     with c1:
@@ -112,6 +110,14 @@ def open_random_generator_window():
 
 def show_main_menu():
     # --- Sidebar: Wybór zestawu ---
+    LANG_MAP = {
+        "Polski": "pl",
+        "Angielski": "en",
+        "Niemiecki": "de",
+        "Francuski": "fr",
+        "Hiszpański": "es",
+        "Włoski": "it"
+    }
     lang_names = list(LANG_MAP.keys())
     lang_codes = list(LANG_MAP.values())
     with st.sidebar:
@@ -169,17 +175,23 @@ def show_main_menu():
 
         st.header(f"Edytujesz zestaw: {current_set.upper()}")
         metadata = get_set_metadata(current_set)
-
-        # Zabezpieczenie przed błędem 'str' object has no attribute 'get'
         if not isinstance(metadata, dict):
-            st.error(f"Błąd bazy danych: {metadata}")
-            if st.button("Wróć do listy"):
+            st.error("Błąd ładowania metadanych.")
+            if st.button("Powrót"):
                 st.session_state.current_view = 'main_menu'
                 st.rerun()
-            return
+            st.stop()
 
         db_source = metadata.get('source_lang', 'pl')
         db_target = metadata.get('target_lang', 'en')
+
+        raw_words = load_words_from_db(current_set)
+        if raw_words:
+            st.session_state.table_data = pd.DataFrame(raw_words)[["word", "clue"]]
+        else:
+            st.session_state.table_data = pd.DataFrame(columns=["word", "clue"])
+        st.session_state.last_loaded_set = current_set
+
         try:
             source_index = lang_codes.index(db_source)
         except ValueError:
@@ -244,73 +256,88 @@ def show_main_menu():
                         with col_btn:
                             # PRZYCISK DODAWANIA
                             if st.button("Dodaj", key=f"add_sug_{i}"):
-                                new_clue = res['text']
-                                new_row = pd.DataFrame([{"word": word_to_check.upper(), "clue": new_clue}])
+                                # Dodajemy nowy wiersz do stanu sesji
+                                new_row = pd.DataFrame([{"word": word_to_check.upper(), "clue": res['text']}])
                                 st.session_state.table_data = pd.concat([st.session_state.table_data, new_row],
                                                                         ignore_index=True)
-                                st.rerun()
-
+                                success = update_set_content_in_db(
+                                    current_set,
+                                    st.session_state.table_data,
+                                    source_lang_code,
+                                    target_lang_code
+                                )
+                                if success:
+                                    st.success("Dodano do tabeli!")
+                                    st.rerun()  # Odświeżamy, by editor zobaczył nowy wiersz
+                                else:
+                                    st.error("Słowo zostało dodane lokalnie, ale wystąpił błąd zapisu w bazie.")
                 else:
                     st.warning("Brak propozycji.")
 
-            # 1. Inicjalizacja danych jako DataFrame (zawsze)
-            if 'table_data' not in st.session_state or st.session_state.get('last_loaded_set') != current_set:
-                raw_words = load_words_from_db(current_set)
-                if raw_words:
-                    st.session_state.table_data = pd.DataFrame(raw_words)[["word", "clue"]]
+
+        # 2. Inicjalizacja table_data jako DataFrame - to zapobiegnie błędowi .empty
+        if raw_words:
+            st.session_state.table_data = pd.DataFrame(raw_words)[["word", "clue"]]
+        else:
+            # Tworzymy pusty DF z odpowiednimi kolumnami, jeśli zestaw jest nowy/pusty
+            st.session_state.table_data = pd.DataFrame(columns=["word", "clue"])
+
+        # 3. Teraz sprawdzenie .empty zadziała poprawnie
+
+        current_lang = st.session_state.get('crossword_language', 'Polski')
+
+
+
+
+
+        # 2. PANEL ANALITYCZNY AI (wyświetlany nad edytorem)
+        # Obliczamy trudność na podstawie tego, co jest obecnie w sesji
+        if not st.session_state.table_data.empty:
+            # Wywołujemy ocenę całego zestawu
+            # Konwertujemy dataframe na listę słowników dla modelu
+            words_list = st.session_state.table_data.to_dict('records')
+            set_difficulty = ai_engine.get_set_difficulty(words_list, current_lang)
+
+            # Wyświetlenie metryki
+            col_ai, col_info = st.columns([1, 3])
+            with col_ai:
+                st.metric("Trudność zestawu (AI)", set_difficulty)
+            with col_info:
+                st.caption("Model analizuje długość słów, unikalne znaki oraz definicje, "
+                           "ucząc się na błędach uczniów zapisanych w bazie.")
+
+        st.subheader(f"Edycja zestawu: {current_set}")
+        # 3. TWÓJ EDYTOR
+        edited_df = st.data_editor(
+            st.session_state.table_data,
+            column_config={
+                "word": st.column_config.TextColumn("Słowo", required=True),
+                "clue": st.column_config.TextColumn("Definicja", required=True)
+            },
+            num_rows="dynamic",
+            use_container_width=True,
+            key=f"editor_v2_{current_set}",  # Unikalny klucz zapobiega glitchom
+            hide_index=True
+        )
+
+        # 4. AKTUALIZACJA I REAKCJA
+        if not edited_df.empty:
+            st.session_state.table_data = edited_df
+            # Streamlit automatycznie przeładuje stronę,
+            # a metryka na górze zaktualizuje się dzięki nowym danym!
+            st.rerun()
+
+        col_save, col_delete, col_info = st.columns([1, 1, 3])
+        with col_save:
+            if st.button("Zapisz zmiany w tabeli", type="primary"):
+                new_data = edited_df.to_dict('records')
+                # Teraz source_lang_code i target_lang_code są już zdefiniowane!
+                if update_set_content_in_db(current_set, new_data, source_lang_code, target_lang_code):
+                    st.session_state.table_data = new_data  # Aktualizujemy stan lokalny
+                    st.toast("Zestaw oraz języki zostały zaktualizowane!")
                 else:
-                    st.session_state.table_data = pd.DataFrame(columns=["word", "clue"])
-                st.session_state.last_loaded_set = current_set
-
-            # 2. Asystent Definicji
-            with st.expander("🪄 Asystent Definicji (AI)", expanded=False):
-                new_word = st.text_input("Słowo do zdefiniowania:", key="ai_new_word")
-                if st.button("Pobierz i Dodaj", type="primary", use_container_width=True):
-                    if new_word:
-                        with st.spinner("Szukam definicji..."):
-                            # Pobieramy nazwy języków z sesji lub metadanych
-                            src_lang_name = st.session_state.get('source_lang_name', 'Polski')
-                            tgt_lang_name = st.session_state.get('target_lang_name', 'Angielski')
-
-                            # Używamy globalnego LANG_MAP
-                            new_clue = get_refined_clue(new_word, LANG_MAP.get(src_lang_name, 'pl'),
-                                                        LANG_MAP.get(tgt_lang_name, 'en'))
-
-                            # Tworzymy nowy wiersz jako DataFrame i łączymy go z obecnym stanem
-                            new_row = pd.DataFrame([{"word": new_word.upper(), "clue": new_clue}])
-                            st.session_state.table_data = pd.concat([st.session_state.table_data, new_row],
-                                                                    ignore_index=True)
-
-                            st.toast(f"Dodano: {new_word}")
-                            st.rerun()
-
-            # 3. Edytor Tabeli
-            # Jeśli dodałeś coś ręcznie, edited_df przechwyci te zmiany
-            edited_df = st.data_editor(
-                st.session_state.table_data,
-                column_config={
-                    "word": st.column_config.TextColumn("Słowo", required=True),
-                    "clue": st.column_config.TextColumn("Podpowiedź / Definicja", required=True)
-                },
-                num_rows="dynamic",
-                use_container_width=True,
-                key=f"editor_{current_set}",
-                hide_index=True
-            )
-
-            # 4. Zapisywanie zmian (Dla ręcznie dodanych i AI)
-            col_save, col_delete, _ = st.columns([1, 1, 3])
-            with col_save:
-                if st.button("Zapisz zmiany w tabeli", type="primary"):
-                    # Bardzo ważne: bierzemy dane z edited_df, nie z session_state!
-                    new_data_list = edited_df.to_dict('records')
-
-                    if update_set_content_in_db(current_set, new_data_list, source_lang_code, target_lang_code):
-                        st.session_state.table_data = edited_df  # Synchronizujemy stan po zapisie
-                        st.toast("Zmiany zostały zapisane w bazie danych!")
-                        st.rerun()
-                    else:
-                        st.error("Nie udało się zapisać zmian w bazie.")
+                    st.error("Wystąpił błąd podczas zapisu.")
+                pass
         with col_delete:
             # Dodajemy przycisk usuwania z potwierdzeniem
             if st.button("🗑️ Usuń zestaw", type="secondary", use_container_width=True):
