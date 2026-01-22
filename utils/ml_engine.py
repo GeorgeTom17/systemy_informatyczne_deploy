@@ -33,6 +33,7 @@ class DifficultyModel:
     def __init__(self):
         self.model = RandomForestClassifier(n_estimators=100, random_state=42)
         self.is_trained = False
+        self.last_train_time = None
 
     def calculate_similarity(self, word1, word2):
         """
@@ -122,7 +123,7 @@ class DifficultyModel:
 
     def predict(self, word, clue="", lang="Polski"):
         if not self.is_trained:
-            self.train(INITIAL_DATA)
+            self.train()
 
         features = self.extract_features(word, clue, lang)
         prediction = self.model.predict([features])[0]

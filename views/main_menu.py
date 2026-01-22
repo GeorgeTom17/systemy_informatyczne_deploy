@@ -246,7 +246,9 @@ def show_main_menu():
                                     "word": word_to_check.upper(),
                                     "clue": res['text']
                                 }
-                                st.session_state.table_data.append(new_row)
+                                new_df = pd.DataFrame([new_row])
+                                st.session_state.table_data = pd.concat([st.session_state.table_data, new_df],
+                                                                        ignore_index=True)
                                 success = update_set_content_in_db(
                                     current_set,
                                     st.session_state.table_data,
@@ -296,6 +298,9 @@ def show_main_menu():
 
         st.subheader(f"Edycja zestawu: {current_set}")
         # 3. TWÓJ EDYTOR
+        metric_placeholder = st.empty()
+
+        # 2. Wyświetlamy edytor (używamy table_data jako bazy)
         edited_df = st.data_editor(
             st.session_state.table_data,
             column_config={
@@ -308,24 +313,36 @@ def show_main_menu():
             hide_index=True
         )
 
-        # 4. AKTUALIZACJA I REAKCJA
-        if not edited_df.equals(st.session_state.table_data):
-            st.session_state.table_data = edited_df
-            # Streamlit automatycznie przeładuje stronę,
-            # a metryka na górze zaktualizuje się dzięki nowym danym!
-            st.rerun()
+        # 3. AKTUALIZACJA ANALIZY AI (na żywo na podstawie edited_df)
+        if not edited_df.empty:
+            words_list = edited_df.to_dict('records')
+            # Pobieramy język z metadanych zestawu lub sesji
+            lang_to_analyze = st.session_state.get('crossword_language', 'Polski')
 
-        col_save, col_delete, col_info = st.columns([1, 1, 3])
+            difficulty = ai_engine.get_set_difficulty(words_list, lang_to_analyze)
+
+            # Wypełniamy placeholder na górze
+            with metric_placeholder:
+                col_ai, col_info = st.columns([1, 3])
+                with col_ai:
+                    st.metric("Trudność zestawu (AI)", difficulty)
+                with col_info:
+                    st.caption("Analiza na żywo: model ocenia słowa i definicje widoczne w tabeli.")
+
+        # 4. Usunięto blok 'if not edited_df.equals... st.rerun()' - to on powodował błąd!
+
+        col_save, col_delete, col_info_btn = st.columns([1, 1, 3])
         with col_save:
             if st.button("Zapisz zmiany w tabeli", type="primary"):
-                new_data = edited_df.to_dict('records')
-                # Teraz source_lang_code i target_lang_code są już zdefiniowane!
-                if update_set_content_in_db(current_set, new_data, source_lang_code, target_lang_code):
-                    st.session_state.table_data = new_data  # Aktualizujemy stan lokalny
-                    st.toast("Zestaw oraz języki zostały zaktualizowane!")
+                # Przy zapisie bierzemy dane z edytora i synchronizujemy z sesją
+                new_data_list = edited_df.to_dict('records')
+
+                # Wyciągamy kody języków (musisz mieć je dostępne w tej części kodu)
+                if update_set_content_in_db(current_set, new_data_list, source_lang_code, target_lang_code):
+                    st.session_state.table_data = edited_df  # Synchronizacja stanu
+                    st.toast("Zestaw został zapisany pomyślnie!")
                 else:
-                    st.error("Wystąpił błąd podczas zapisu.")
-                pass
+                    st.error("Wystąpił błąd podczas zapisu do bazy.")
         with col_delete:
             # Dodajemy przycisk usuwania z potwierdzeniem
             if st.button("🗑️ Usuń zestaw", type="secondary", use_container_width=True):
