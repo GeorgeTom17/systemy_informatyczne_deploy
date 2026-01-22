@@ -244,25 +244,12 @@ def show_main_menu():
                         with col_btn:
                             # PRZYCISK DODAWANIA
                             if st.button("Dodaj", key=f"add_sug_{i}"):
-                                # Dodajemy nowy wiersz do stanu sesji
-                                new_row = {
-                                    "word": word_to_check.upper(),
-                                    "clue": res['text']
-                                }
-                                new_df = pd.DataFrame([new_row])
-                                st.session_state.table_data = pd.concat([st.session_state.table_data, new_df],
+                                new_clue = res['text']
+                                new_row = pd.DataFrame([{"word": word_to_check.upper(), "clue": new_clue}])
+                                st.session_state.table_data = pd.concat([st.session_state.table_data, new_row],
                                                                         ignore_index=True)
-                                success = update_set_content_in_db(
-                                    current_set,
-                                    st.session_state.table_data,
-                                    source_lang_code,
-                                    target_lang_code
-                                )
-                                if success:
-                                    st.success("Dodano do tabeli!")
-                                    st.rerun()  # Odświeżamy, by editor zobaczył nowy wiersz
-                                else:
-                                    st.error("Słowo zostało dodane lokalnie, ale wystąpił błąd zapisu w bazie.")
+                                st.rerun()
+
                 else:
                     st.warning("Brak propozycji.")
 
