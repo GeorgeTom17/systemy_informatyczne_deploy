@@ -283,6 +283,7 @@ def show_main_menu():
                 new_data = edited_df.to_dict('records')
                 # Teraz source_lang_code i target_lang_code są już zdefiniowane!
                 for new_datum in new_data:
+                    st.info(new_datum)
                     st.session_state.table_data.append(new_datum)
                 success = update_set_content_in_db(
                     current_set,
@@ -294,6 +295,8 @@ def show_main_menu():
                     st.success("Dodano do tabeli!")
                     word_to_check = ""
                     st.rerun()  # Odświeżamy, by editor zobaczył nowy wiersz
+                else:
+                    st.error("Błąd zapisu do bazy")
         with col_delete:
             # Dodajemy przycisk usuwania z potwierdzeniem
             if st.button("🗑️ Usuń zestaw", type="secondary", use_container_width=True):
