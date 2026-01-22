@@ -174,24 +174,9 @@ def show_main_menu():
             st.session_state.last_set = current_set
 
         st.header(f"Edytujesz zestaw: {current_set.upper()}")
-        metadata = get_set_metadata(current_set)
-        if not isinstance(metadata, dict):
-            st.error("Błąd ładowania metadanych.")
-            if st.button("Powrót"):
-                st.session_state.current_view = 'main_menu'
-                st.rerun()
-            st.stop()
-
-        db_source = metadata.get('source_lang', 'pl')
-        db_target = metadata.get('target_lang', 'en')
-
-        raw_words = load_words_from_db(current_set)
-        if raw_words:
-            st.session_state.table_data = pd.DataFrame(raw_words)[["word", "clue"]]
-        else:
-            st.session_state.table_data = pd.DataFrame(columns=["word", "clue"])
-        st.session_state.last_loaded_set = current_set
-
+        set_meta = get_set_metadata(current_set)
+        db_source = set_meta.get('source_lang', 'pl')
+        db_target = set_meta.get('target_lang', 'en')
         try:
             source_index = lang_codes.index(db_source)
         except ValueError:
@@ -257,9 +242,11 @@ def show_main_menu():
                             # PRZYCISK DODAWANIA
                             if st.button("Dodaj", key=f"add_sug_{i}"):
                                 # Dodajemy nowy wiersz do stanu sesji
-                                new_row = pd.DataFrame([{"word": word_to_check.upper(), "clue": res['text']}])
-                                st.session_state.table_data = pd.concat([st.session_state.table_data, new_row],
-                                                                        ignore_index=True)
+                                new_row = {
+                                    "word": word_to_check.upper(),
+                                    "clue": res['text']
+                                }
+                                st.session_state.table_data.append(new_row)
                                 success = update_set_content_in_db(
                                     current_set,
                                     st.session_state.table_data,
@@ -274,6 +261,7 @@ def show_main_menu():
                 else:
                     st.warning("Brak propozycji.")
 
+        raw_words = load_words_from_db(current_set)
 
         # 2. Inicjalizacja table_data jako DataFrame - to zapobiegnie błędowi .empty
         if raw_words:
@@ -312,16 +300,16 @@ def show_main_menu():
             st.session_state.table_data,
             column_config={
                 "word": st.column_config.TextColumn("Słowo", required=True),
-                "clue": st.column_config.TextColumn("Definicja", required=True)
+                "clue": st.column_config.TextColumn("Podpowiedź / Definicja", required=True)
             },
             num_rows="dynamic",
             use_container_width=True,
-            key=f"editor_v2_{current_set}",  # Unikalny klucz zapobiega glitchom
+            key=f"editor_{current_set}",
             hide_index=True
         )
 
         # 4. AKTUALIZACJA I REAKCJA
-        if not edited_df.empty:
+        if not edited_df.equals(st.session_state.table_data):
             st.session_state.table_data = edited_df
             # Streamlit automatycznie przeładuje stronę,
             # a metryka na górze zaktualizuje się dzięki nowym danym!
