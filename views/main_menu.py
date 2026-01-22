@@ -276,26 +276,6 @@ def show_main_menu():
 
         current_lang = st.session_state.get('crossword_language', 'Polski')
 
-
-
-
-
-        # 2. PANEL ANALITYCZNY AI (wyświetlany nad edytorem)
-        # Obliczamy trudność na podstawie tego, co jest obecnie w sesji
-        if not st.session_state.table_data.empty:
-            # Wywołujemy ocenę całego zestawu
-            # Konwertujemy dataframe na listę słowników dla modelu
-            words_list = st.session_state.table_data.to_dict('records')
-            set_difficulty = ai_engine.get_set_difficulty(words_list, current_lang)
-
-            # Wyświetlenie metryki
-            col_ai, col_info = st.columns([1, 3])
-            with col_ai:
-                st.metric("Trudność zestawu (AI)", set_difficulty)
-            with col_info:
-                st.caption("Model analizuje długość słów, unikalne znaki oraz definicje, "
-                           "ucząc się na błędach uczniów zapisanych w bazie.")
-
         st.subheader(f"Edycja zestawu: {current_set}")
         # 3. TWÓJ EDYTOR
         metric_placeholder = st.empty()
