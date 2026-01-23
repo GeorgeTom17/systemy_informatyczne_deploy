@@ -249,24 +249,33 @@ def show_main_menu():
                         with col_btn:
                             # PRZYCISK DODAWANIA
                             if st.button("Dodaj", key=f"add_sug_{i}"):
-                                # Dodajemy nowy wiersz do stanu sesji
                                 new_row = {
                                     "word": word_to_check.upper(),
-                                    "clue": res['text']
+                                    "clue": res["text"]
                                 }
-                                st.session_state.table_data.append(new_row)
+
+                                # DODAJEMY WIERSZ DO DATAFRAME
+                                st.session_state.table_df = pd.concat(
+                                    [
+                                        st.session_state.table_df,
+                                        pd.DataFrame([new_row])
+                                    ],
+                                    ignore_index=True
+                                )
+
+                                # ZAPISUJEMY DO DB
                                 success = update_set_content_in_db(
                                     current_set,
-                                    st.session_state.table_data,
+                                    st.session_state.table_df.to_dict(orient="records"),
                                     source_lang_code,
                                     target_lang_code
                                 )
+
                                 if success:
                                     st.success("Dodano do tabeli!")
-                                    word_to_check = ""
-                                    st.rerun()  # Odświeżamy, by editor zobaczył nowy wiersz
+                                    st.rerun()
                                 else:
-                                    st.error("Słowo zostało dodane lokalnie, ale wystąpił błąd zapisu w bazie.")
+                                    st.error("Błąd zapisu w bazie danych.")
                 else:
                     st.warning("Brak propozycji.")
 
