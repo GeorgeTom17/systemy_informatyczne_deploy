@@ -118,6 +118,13 @@ def show_main_menu():
         "Hiszpański": "es",
         "Włoski": "it"
     }
+
+    if "table_df" not in st.session_state:
+        st.session_state.table_df = pd.DataFrame(columns=["word", "clue"])
+
+    if "last_loaded_set" not in st.session_state:
+        st.session_state.last_loaded_set = None
+
     lang_names = list(LANG_MAP.keys())
     lang_codes = list(LANG_MAP.values())
     with st.sidebar:
@@ -170,18 +177,13 @@ def show_main_menu():
             st.warning("Brak zestawów w bazie.")
             current_set = None
 
-    if current_set:
-        # JEŚLI zmieniono zestaw – ładujemy nowe dane
-        if (
-                "last_loaded_set" not in st.session_state
-                or st.session_state.last_loaded_set != current_set
-        ):
-            data = load_words_from_db(current_set) or []
-            st.session_state.table_df = pd.DataFrame(
-                data,
-                columns=["word", "clue"]
-            )
-            st.session_state.last_loaded_set = current_set
+    if current_set and st.session_state.last_loaded_set != current_set:
+        data = load_words_from_db(current_set) or []
+        st.session_state.table_df = pd.DataFrame(
+            data,
+            columns=["word", "clue"]
+        )
+        st.session_state.last_loaded_set = current_set
 
 
         st.header(f"Edytujesz zestaw: {current_set.upper()}")
