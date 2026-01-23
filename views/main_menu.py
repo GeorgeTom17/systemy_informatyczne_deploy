@@ -124,6 +124,10 @@ def show_main_menu():
 
     if "last_loaded_set" not in st.session_state:
         st.session_state.last_loaded_set = None
+    current_set = st.session_state.get("current_set")
+    if not current_set:
+        st.info("Wybierz zestaw z listy po lewej stronie.")
+        return
 
     lang_names = list(LANG_MAP.keys())
     lang_codes = list(LANG_MAP.values())
@@ -176,13 +180,11 @@ def show_main_menu():
         else:
             st.warning("Brak zestawów w bazie.")
             current_set = None
+        st.session_state.current_set = current_set
 
-    if current_set and st.session_state.last_loaded_set != current_set:
+    if st.session_state.last_loaded_set != current_set:
         data = load_words_from_db(current_set) or []
-        st.session_state.table_df = pd.DataFrame(
-            data,
-            columns=["word", "clue"]
-        )
+        st.session_state.table_df = pd.DataFrame(data, columns=["word", "clue"])
         st.session_state.last_loaded_set = current_set
 
 
