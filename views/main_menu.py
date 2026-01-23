@@ -125,9 +125,7 @@ def show_main_menu():
     if "last_loaded_set" not in st.session_state:
         st.session_state.last_loaded_set = None
     current_set = st.session_state.get("current_set")
-    if not current_set:
-        st.info("Wybierz zestaw z listy po lewej stronie.")
-        return
+
 
     lang_names = list(LANG_MAP.keys())
     lang_codes = list(LANG_MAP.values())
