@@ -168,10 +168,8 @@ def show_main_menu():
 
     if current_set:
         words_data = []
-        if 'last_set' not in st.session_state or st.session_state.last_set != current_set:
-            words_data = load_words_from_db(current_set)
-            st.session_state.table_data = words_data if words_data else []
-            st.session_state.last_set = current_set
+        if "table_data" not in st.session_state:
+            st.session_state.table_data = load_words_from_db(current_set) or []
 
         st.header(f"Edytujesz zestaw: {current_set.upper()}")
         set_meta = get_set_metadata(current_set)
@@ -279,20 +277,19 @@ def show_main_menu():
         col_save, col_delete, col_info = st.columns([1, 1, 3])
         with col_save:
             if st.button("Zapisz zmiany w tabeli", type="primary"):
-                # 1. Pobieramy "czystą" listę słowników prosto z edytora (wszystkie wiersze)
-                new_data_list = edited_df.to_dict('records')
+                # JEDYNE ŹRÓDŁO PRAWDY
+                new_data_list = edited_df.to_dict(orient="records")
 
-                # 2. Wysyłamy tę listę prosto do bazy danych
                 success = update_set_content_in_db(
                     current_set,
-                    new_data_list,  # Świeże dane z ekranu
+                    new_data_list,
                     source_lang_code,
                     target_lang_code
                 )
 
                 if success:
-                    # 3. Aktualizujemy stan sesji, aby był spójny z tym, co wysłaliśmy
-                    st.session_state.table_data = edited_df
+                    # zapisujemy LISTĘ, nie DataFrame
+                    st.session_state.table_data = new_data_list
                     st.success("Zapisano zmiany w bazie danych!")
                     st.rerun()
                 else:
