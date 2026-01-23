@@ -272,23 +272,21 @@ def show_main_menu():
             num_rows="dynamic",
             use_container_width=True,
             hide_index=True,
-            key="editor"
+            key=f"editor_{current_set}"
         )
+        st.session_state.table_data = edited_df.to_dict(orient="records")
 
         col_save, col_delete, col_info = st.columns([1, 1, 3])
         with col_save:
             if st.button("Zapisz zmiany w tabeli", type="primary"):
-                new_data = edited_df.to_dict(orient="records")
-
                 success = update_set_content_in_db(
                     current_set,
-                    new_data,
+                    st.session_state.table_data,
                     source_lang_code,
                     target_lang_code
                 )
 
                 if success:
-                    st.session_state.table_data = new_data
                     st.success("Zapisano zmiany w bazie danych.")
                     st.rerun()
                 else:
