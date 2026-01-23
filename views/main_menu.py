@@ -161,16 +161,23 @@ def show_main_menu():
 
         sets = get_all_sets_from_db()
         if sets:
-            current_set = st.selectbox("Wybierz zestaw do edycji:", sets)
+            current_set = st.selectbox(
+                "Wybierz zestaw do edycji:",
+                sets,
+                key="selected_set"
+            )
         else:
             st.warning("Brak zestawów w bazie.")
             current_set = None
 
     if current_set:
-        words_data = load_words_from_db(current_set)
-        st.session_state.table_data = words_data if words_data else []
-        st.session_state.last_set = current_set
-        #if 'last_set' not in st.session_state or st.session_state.last_set != current_set:
+        # JEŚLI zmieniono zestaw – ładujemy nowe dane
+        if (
+                "last_loaded_set" not in st.session_state
+                or st.session_state.last_loaded_set != current_set
+        ):
+            st.session_state.table_data = load_words_from_db(current_set) or []
+            st.session_state.last_loaded_set = current_set
 
 
         st.header(f"Edytujesz zestaw: {current_set.upper()}")
@@ -186,10 +193,6 @@ def show_main_menu():
             target_index = lang_codes.index(db_target)
         except ValueError:
             target_index = 1  # Domyślnie Angielski
-        df = pd.DataFrame(words_data)
-
-        if df.empty:
-            df = pd.DataFrame(columns=["word", "clue"])
 
 
 
@@ -266,33 +269,27 @@ def show_main_menu():
 
         edited_df = st.data_editor(
             st.session_state.table_data,
-            column_config={
-                "word": st.column_config.TextColumn("Słowo", required=True),
-                "clue": st.column_config.TextColumn("Podpowiedź / Definicja", required=True)
-            },
             num_rows="dynamic",
             use_container_width=True,
-            key=f"editor_{current_set}",
-            hide_index=True
+            hide_index=True,
+            key="editor"
         )
 
         col_save, col_delete, col_info = st.columns([1, 1, 3])
         with col_save:
             if st.button("Zapisz zmiany w tabeli", type="primary"):
-                # JEDYNE ŹRÓDŁO PRAWDY
-                new_data_list = edited_df.to_dict(orient="records")
+                new_data = edited_df.to_dict(orient="records")
 
                 success = update_set_content_in_db(
                     current_set,
-                    new_data_list,
+                    new_data,
                     source_lang_code,
                     target_lang_code
                 )
 
                 if success:
-                    # zapisujemy LISTĘ, nie DataFrame
-                    st.session_state.table_data = new_data_list
-                    st.success("Zapisano zmiany w bazie danych!")
+                    st.session_state.table_data = new_data
+                    st.success("Zapisano zmiany w bazie danych.")
                     st.rerun()
                 else:
                     st.error("Błąd zapisu do bazy danych.")
