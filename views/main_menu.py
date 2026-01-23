@@ -167,9 +167,8 @@ def show_main_menu():
             current_set = None
 
     if current_set:
-
+        words_data = load_words_from_db(current_set)
         if 'last_set' not in st.session_state or st.session_state.last_set != current_set:
-            words_data = load_words_from_db(current_set)
             st.session_state.table_data = words_data if words_data else []
             st.session_state.last_set = current_set
 
