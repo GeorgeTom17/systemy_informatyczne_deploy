@@ -274,7 +274,11 @@ def show_main_menu():
             hide_index=True,
             key=f"editor_{current_set}"
         )
-        st.session_state.table_data = edited_df.to_dict(orient="records")
+        if isinstance(edited_df, pd.DataFrame):
+            st.session_state.table_data = edited_df.to_dict(orient="records")
+        else:
+            # edited_df jest już listą dictów
+            st.session_state.table_data = edited_df
 
         col_save, col_delete, col_info = st.columns([1, 1, 3])
         with col_save:
