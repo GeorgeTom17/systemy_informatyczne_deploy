@@ -176,7 +176,11 @@ def show_main_menu():
                 "last_loaded_set" not in st.session_state
                 or st.session_state.last_loaded_set != current_set
         ):
-            st.session_state.table_data = load_words_from_db(current_set) or []
+            data = load_words_from_db(current_set) or []
+            st.session_state.table_df = pd.DataFrame(
+                data,
+                columns=["word", "clue"]
+            )
             st.session_state.last_loaded_set = current_set
 
 
@@ -268,29 +272,36 @@ def show_main_menu():
         st.info("Kliknij w komórkę, aby edytować. Zaznacz wiersz i naciśnij Delete, aby usunąć.")
 
         edited_df = st.data_editor(
-            st.session_state.table_data,
+            st.session_state.table_df,
             num_rows="dynamic",
             use_container_width=True,
             hide_index=True,
             key=f"editor_{current_set}"
         )
-        if isinstance(edited_df, pd.DataFrame):
-            st.session_state.table_data = edited_df.to_dict(orient="records")
-        else:
-            # edited_df jest już listą dictów
-            st.session_state.table_data = edited_df
 
         col_save, col_delete, col_info = st.columns([1, 1, 3])
         with col_save:
             if st.button("Zapisz zmiany w tabeli", type="primary"):
+                clean_df = edited_df.dropna(subset=["word", "clue"])
+
+                new_data = [
+                    {
+                        "word": str(row["word"]).strip().upper(),
+                        "clue": str(row["clue"]).strip()
+                    }
+                    for _, row in clean_df.iterrows()
+                    if row["word"] and row["clue"]
+                ]
+
                 success = update_set_content_in_db(
                     current_set,
-                    st.session_state.table_data,
+                    new_data,
                     source_lang_code,
                     target_lang_code
                 )
 
                 if success:
+                    st.session_state.table_df = clean_df
                     st.success("Zapisano zmiany w bazie danych.")
                     st.rerun()
                 else:
