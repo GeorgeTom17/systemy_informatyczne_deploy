@@ -230,54 +230,58 @@ def show_main_menu():
         st.divider()
 
         with st.expander("Asystent Definicji", expanded=False):
-            word_to_check = st.text_input("Wpisz słowo z tabeli:", placeholder="np. Jabłko")
+            with st.form(key="assistant_form", clear_on_submit=False):
+                word_to_check = st.text_input(
+                    "Wpisz słowo z tabeli:",
+                    placeholder="np. Jabłko"
+                )
 
-            if word_to_check:
-                with st.spinner("Generuję definicje przez most angielski..."):
-                    # Używamy naszych kodów source_lang_code i target_lang_code
-                    results = get_complex_suggestions(word_to_check, source_lang_code, target_lang_code)
+                submit = st.form_submit_button("Szukaj definicji")
 
-                if results:
-                    st.write(f"Sugerowane definicje w języku **{tgt_lang_name}**:")
-                    for i, res in enumerate(results):
-                        col_text, col_btn = st.columns([4, 1])
+                if submit and word_to_check:
+                    with st.spinner("Generuję definicje..."):
+                        results = get_complex_suggestions(
+                            word_to_check,
+                            source_lang_code,
+                            target_lang_code
+                        )
 
-                        with col_text:
-                            label = res['pos']  # np. noun, verb
-                            st.markdown(f"**[{label}]** {res['text']}")
+                    if results:
+                        st.write(f"Sugerowane definicje w języku **{tgt_lang_name}**:")
+                        for i, res in enumerate(results):
+                            col_text, col_btn = st.columns([4, 1])
 
-                        with col_btn:
-                            # PRZYCISK DODAWANIA
-                            if st.button("Dodaj", key=f"add_sug_{i}"):
-                                new_row = {
-                                    "word": word_to_check.upper(),
-                                    "clue": res["text"]
-                                }
+                            with col_text:
+                                st.markdown(f"**[{res['pos']}]** {res['text']}")
 
-                                # DODAJEMY WIERSZ DO DATAFRAME
-                                st.session_state.table_df = pd.concat(
-                                    [
-                                        st.session_state.table_df,
-                                        pd.DataFrame([new_row])
-                                    ],
-                                    ignore_index=True
-                                )
+                            with col_btn:
+                                if st.button("Dodaj", key=f"add_sug_{i}"):
+                                    new_row = {
+                                        "word": word_to_check.upper(),
+                                        "clue": res["text"]
+                                    }
 
-                                # ZAPISUJEMY DO DB
-                                success = update_set_content_in_db(
-                                    current_set,
-                                    st.session_state.table_df.to_dict(orient="records"),
-                                    source_lang_code,
-                                    target_lang_code
-                                )
+                                    st.session_state.table_df = pd.concat(
+                                        [
+                                            st.session_state.table_df,
+                                            pd.DataFrame([new_row])
+                                        ],
+                                        ignore_index=True
+                                    )
 
-                                if success:
+                                    update_set_content_in_db(
+                                        current_set,
+                                        st.session_state.table_df.to_dict("records"),
+                                        source_lang_code,
+                                        target_lang_code
+                                    )
+
                                     st.success("Dodano do tabeli!")
                                     st.rerun()
                                 else:
                                     st.error("Błąd zapisu w bazie danych.")
-                else:
-                    st.warning("Brak propozycji.")
+                    else:
+                        st.warning("Brak propozycji.")
 
         st.divider()
         st.info("Kliknij w komórkę, aby edytować. Zaznacz wiersz i naciśnij Delete, aby usunąć.")
