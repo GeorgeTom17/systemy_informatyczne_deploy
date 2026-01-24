@@ -41,31 +41,25 @@ def student_auto_finalizer(s_id, s_name):
 
     # Pobieramy rekord ucznia z tabeli LIVE
     res = supabase.table("realtime_scores") \
-        .select("is_finished, completion_time, hint_count") \
+        .select("is_finished, completion_time, hint_count, score") \
         .eq("session_id", s_id) \
         .eq("student_name", s_name) \
         .execute()
 
-    if res.data and len(res.data) > 0:
-        data = res.data[0]
+    if res.data and res.data[0].get('is_finished'):
+        row = res.data[0]
+        success = save_result_to_db(
+            session_id=s_id,
+            student_name=s_name,
+            time_taken=row.get('completion_time'),
+            hint_count=row.get('hint_count', 0),
+            score=row.get('score', 0)  # <--- TO JEST KLUCZOWE
+        )
 
-        # JEŚLI JS OZNACZYŁ JAKO ZAKOŃCZONE
-        if data.get('is_finished') == True:
-            final_time = data.get('completion_time')
-            hints = data.get('hint_count', 0)
-
-            # 1. Zapisujemy w oficjalnej tabeli wyników
-            success = save_result_to_db(s_id, s_name, final_time, hints)
-
-            if success:
-                # 2. Usuwamy z tabeli LIVE (żeby czujka nie kręciła się w nieskończoność)
-                supabase.table("realtime_scores").delete() \
-                    .eq("session_id", s_id) \
-                    .eq("student_name", s_name).execute()
-
-                # 3. Zmieniamy stan aplikacji, co wyłączy iframe i pokaże gratulacje
-                st.session_state.result_submitted = True
-                st.rerun()
+        if success:
+            supabase.table("realtime_scores").delete().eq("session_id", s_id).eq("student_name", s_name).execute()
+            st.session_state.result_submitted = True
+            st.rerun()
 
 
 @st.fragment(run_every=2)
@@ -425,6 +419,9 @@ def show_crossword_view(student_mode=False, session_name=None, student_name=None
                         let hintCount = 0;
 
                         let startTime = Date.now();
+                        let manualLetters = 0;
+                        let hintLetters = 0;
+                        let totalSeconds = 0;
                         let timerInterval;
                         let isSolved = false;
                         
@@ -436,6 +433,10 @@ def show_crossword_view(student_mode=False, session_name=None, student_name=None
                         
                         let currentScore = 0;
                         let correctLettersSet = new Set();
+                        
+                        function trackManualInput() {{
+                            manualLetters++;
+                        }}
                         
                         async function logEasyWords() {{
                             const inputs = document.querySelectorAll('input');
@@ -485,40 +486,53 @@ def show_crossword_view(student_mode=False, session_name=None, student_name=None
                         }}
                         
                         async function finalizeSessionAuto(finalTime) {{
-                            // Musimy przeliczyć poprawne odpowiedzi na miejscu, by mieć pewność danych
                             const inputs = document.querySelectorAll('input');
                             const totalCells = inputs.length;
-                            let correctCount = 0;
-                            inputs.forEach(input => {{
-                                if (input.value.toUpperCase() === input.getAttribute("data-correct")) correctCount++;
-                            }});
+                            let manualCount = 0;
+                            let hintUsedOnCell = 0;
                         
+                            inputs.forEach(input => {{
+                                if (input.value.toUpperCase() === input.getAttribute("data-correct")) {{
+                                    if (input.classList.contains('hint-used')) hintUsedOnCell++;
+                                    else manualCount++;
+                                }}
+                            }});
+
+                            // --- ALGORYTM FAIR PLAY ---
+                            const accuracy = manualCount / totalCells;
+                            const baseScore = (manualCount * 10) + (hintUsedOnCell * 2); // 2 pkt za hint, 10 za wiedzę
+
+                            const timeParts = finalTime.split(':');
+                            const seconds = parseInt(timeParts[0]) * 60 + parseInt(timeParts[1]);
+
+                            // Bonus czasowy: tylko jeśli celność > 80%
+                            const standardTime = totalCells * 10;
+                            let timeBonus = (accuracy >= 0.8) ? Math.max(0, standardTime - seconds) : 0;
+
+                            // Finałowa sprawiedliwa punktacja
+                            const fairScore = Math.round((baseScore * Math.pow(accuracy, 2)) + timeBonus);
+
+                            // Wysyłamy JUŻ OBLICZONY wynik do tabeli LIVE
                             try {{
                                 const url = `${{supabaseUrl}}/rest/v1/realtime_scores?on_conflict=session_id,student_name`;
-                                const response = await fetch(url, {{
+                                await fetch(url, {{
                                     method: 'POST',
                                     headers: {{
                                         'apikey': supabaseKey,
                                         'Authorization': `Bearer ${{supabaseKey}}`,
-                                        'Content-Type': 'application/json',
-                                        'Prefer': 'resolution=merge-duplicates'
+                                        'Content-Type': 'application/json'
                                     }},
                                     body: JSON.stringify({{
                                         session_id: sessionId,
                                         student_name: studentName,
-                                        score: (correctCount * 10) - (hintCount * 5),
+                                        score: fairScore, // <--- TO JEST NASZ NOWY, UCZCIWY WYNIK
                                         progress_percent: 100,
-                                        hint_count: hintCount,
                                         is_finished: true,
                                         completion_time: finalTime,
                                         last_updated: new Date().toISOString()
                                     }})
                                 }});
-                                
-                                if(response.ok) console.log("Dane końcowe wysłane");
-                            }} catch (e) {{
-                                console.error("Błąd wysyłki końcowej:", e);
-                            }}
+                            }} catch (e) {{ console.error(e); }}
                         }}
                         
                         async function syncRealtimeScore() {{
@@ -606,6 +620,7 @@ def show_crossword_view(student_mode=False, session_name=None, student_name=None
                             lastFocusedInput.classList.remove("valid");
 
                             hintCount++;
+                            hintLetters++;
                             syncRealtimeScore()
                             document.getElementById("hint-count").innerText = "Użyto: " + hintCount;
 
@@ -661,9 +676,9 @@ def show_crossword_view(student_mode=False, session_name=None, student_name=None
                                 clearInterval(timerInterval);
                                 logEasyWords();
                                 const finalTime = document.getElementById("timer").innerText;
-                                
+                                const stats = calculateFinalScore(totalSeconds, allInputs.length);
                                 // WYŚLIJ DO BAZY
-                                finalizeSessionAuto(finalTime);
+                                finalizeSessionAuto(finalTime, stats);
                                 
                                 // Alert dajemy z małym opóźnieniem, żeby przeglądarka zdążyła wyrenderować kolory
                                 setTimeout(() => {{

@@ -209,18 +209,28 @@ def get_results_for_session_from_db(session_id):
         st.error(f"Błąd pobierania wyników: {e}")
         return []
 
-def save_result_to_db(session_id, student_name, time_taken, hint_count):
+
+def save_result_to_db(session_id, student_name, time_taken, hint_count, score=0):
+    """
+    Zapisuje oficjalny wynik do tabeli results.
+    Dodaliśmy parametr 'score', który otrzymujemy z obliczeń JS.
+    """
     supabase = get_supabase_client()
     try:
-        supabase.table("results").insert({
+        # Przygotowujemy dane do wstawienia
+        data_to_insert = {
             "session_id": session_id,
             "student_name": student_name,
-            "time_taken": time_taken,
-            "hint_count": hint_count # Zapisujemy realną liczbę!
-        }).execute()
+            "time_taken": time_taken,  # np. "02:15"
+            "hint_count": hint_count,  # Liczba użytych podpowiedzi
+            "score": score  # NASZ NOWY SPRAWIEDLIWY WYNIK
+        }
+
+        supabase.table("results").insert(data_to_insert).execute()
         return True
     except Exception as e:
-        st.error(f"Błąd zapisu: {e}")
+        # Logujemy błąd w konsoli serwera
+        print(f"Błąd zapisu do tabeli results: {e}")
         return False
 
 def get_realtime_scores_from_db(session_id):
