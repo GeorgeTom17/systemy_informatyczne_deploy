@@ -11,23 +11,48 @@ from utils.qr_manager import generate_qr_image
 
 @st.fragment(run_every=2)
 def render_results_table_fragment(s_id):
-    """Odświeża tabelę oficjalnych wyników co 2 sekundy."""
+    """Odświeża tabelę oficjalnych wyników, sortując ich po punktach Fair Play."""
     from utils.db_supabase import get_results_for_session_from_db
     import pandas as pd
 
     results = get_results_for_session_from_db(s_id)
     if results:
         df = pd.DataFrame(results)
-        # Opcjonalnie: zmiana nazw kolumn na ładniejsze
-        df = df.rename(columns={
+
+        # 1. Sortowanie po punktach (malejąco - najwyższy wynik na górze)
+        if "score" in df.columns:
+            df = df.sort_values(by="score", ascending=False)
+
+        # 2. Wybieramy i układamy kolumny w logicznej kolejności
+        # Dodajemy 'score' do widoku
+        display_cols = {
             "student_name": "Uczeń",
+            "score": "Punkty (Fair Play)",
             "time_taken": "Czas",
             "hint_count": "Podpowiedzi",
-            "submitted_at": "Data"
-        })
-        st.dataframe(df, use_container_width=True, hide_index=True)
+            "created_at": "Data ukończenia"
+        }
+
+        # Filtrujemy tylko istniejące kolumny (zabezpieczenie)
+        existing_cols = [c for c in display_cols.keys() if c in df.columns]
+        df = df[existing_cols]
+
+        # 3. Zmiana nazw na ładniejsze
+        df = df.rename(columns=display_cols)
+
+        # Wyświetlenie tabeli jako rankingu
+        st.dataframe(
+            df,
+            use_container_width=True,
+            hide_index=False  # Pokażemy indeks jako "miejsce" w rankingu (opcjonalnie)
+        )
+
+        # Mały dodatek: Wyświetlenie zwycięzcy w formie sukcesu
+        winner = df.iloc[0]["Uczeń"]
+        st.success(f"Obecny lider: **{winner}**")
+
     else:
-        st.info("Nikt jeszcze nie ukończył krzyżówki.")
+        st.info("Nikt jeszcze nie ukończył krzyżówki. Czekam na pierwszych graczy...")
 
 @st.fragment(run_every=3)
 def render_live_ranking_fragment(s_id):

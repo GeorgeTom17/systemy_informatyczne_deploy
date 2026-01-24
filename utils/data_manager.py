@@ -4,76 +4,6 @@ import glob
 import pandas as pd
 from io import StringIO
 from utils.db_supabase import create_set_in_db, bulk_insert_words
-
-DATA_DIR = "data"
-
-
-def update_set_content(set_name, new_data):
-    """
-    Nadpisuje zawartość zestawu nowymi danymi.
-    new_data: lista słowników [{'word': '...', 'clue': '...'}, ...]
-    """
-    file_path = os.path.join(DATA_DIR, f"{set_name}.json")
-
-    # Zabezpieczenie: upewnij się, że dane mają odpowiedni format
-    cleaned_data = []
-    for item in new_data:
-        # Ignorujemy puste wiersze, które mogły powstać przy edycji
-        if item.get('word') and item.get('clue'):
-            cleaned_data.append({
-                'word': str(item['word']).strip().upper(),  # Wymuszamy UPPERCASE dla słów
-                'clue': str(item['clue']).strip()
-            })
-
-    try:
-        with open(file_path, "w", encoding="utf-8") as f:
-            json.dump(cleaned_data, f, indent=4, ensure_ascii=False)
-        return True
-    except Exception as e:
-        print(f"Błąd zapisu zestawu: {e}")
-        return False
-
-
-def get_all_sets():
-    if not os.path.exists(DATA_DIR):
-        return []
-    files = glob.glob(os.path.join(DATA_DIR, "*.json"))
-    return [os.path.splitext(os.path.basename(f))[0] for f in files]
-
-
-def create_set(set_name):
-    if not set_name: return False
-    os.makedirs(DATA_DIR, exist_ok=True)
-    file_path = os.path.join(DATA_DIR, f"{set_name}.json")
-    if not os.path.exists(file_path):
-        with open(file_path, "w", encoding="utf-8") as f: json.dump([], f)
-        return True
-    return False
-
-
-def load_words(set_name):
-    file_path = os.path.join(DATA_DIR, f"{set_name}.json")
-    if not os.path.exists(file_path): return []
-    try:
-        with open(file_path, "r", encoding="utf-8") as f:
-            return json.load(f)
-    except (json.JSONDecodeError, FileNotFoundError):
-        return []
-
-
-def save_word(word, clue, set_name):
-    words = load_words(set_name)
-    new_entry = {"word": word.upper().strip(), "clue": clue.strip()}
-    if new_entry not in words:
-        words.append(new_entry)
-        os.makedirs(DATA_DIR, exist_ok=True)
-        file_path = os.path.join(DATA_DIR, f"{set_name}.json")
-        with open(file_path, "w", encoding="utf-8") as f:
-            json.dump(words, f, indent=4, ensure_ascii=False)
-        return True
-    return False
-
-
 def normalize_data_frame(df):
     df = df.dropna(how='all')
     df.columns = [str(col).lower().strip() for col in df.columns]
@@ -102,15 +32,6 @@ def normalize_data_frame(df):
         if w and c and w.lower() != 'nan' and c.lower() != 'nan':
             result.append({"word": w, "clue": c})
     return result, None
-
-
-def normalize_data_frame(df):
-    """Pomocnicza funkcja do standaryzacji kolumn DataFrame."""
-    # Szukamy kolumn bez względu na wielkość liter
-    df.columns = [c.lower().strip() for c in df.columns]
-    if 'word' in df.columns and 'clue' in df.columns:
-        return df[['word', 'clue']].to_dict('records'), None
-    return [], "Błąd: Plik musi zawierać kolumny 'word' oraz 'clue'."
 
 
 def import_file_to_db(uploaded_file):

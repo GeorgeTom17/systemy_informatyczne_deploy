@@ -1,17 +1,17 @@
-import streamlit as st
-import json
 import os
-from utils.data_manager import save_word, load_words, get_all_sets, create_set, import_file_to_db, DATA_DIR, update_set_content
-from utils.export_code_manager import decode_crossword
-from utils.language_select import render_language_selector
+import random
+
 # Importujemy naszego nowego dostawcę słów
-from utils.random_provider import fetch_random_words
 import pandas as pd
+import streamlit as st
+
+from utils.api_manager import get_complex_suggestions
+from utils.api_manager import get_refined_clue, get_words_from_wikipedia
+from utils.data_manager import import_file_to_db
 from utils.db_supabase import (
     get_all_sets_from_db,
     create_set_in_db,
     load_words_from_db,
-    save_word_to_db,
     update_set_content_in_db,
     get_set_metadata,
     create_empty_set_in_db,
@@ -19,10 +19,7 @@ from utils.db_supabase import (
     delete_set_from_db
 
 )
-from utils.api_manager import get_complex_suggestions
-from utils.api_manager import translate_text, fetch_words_for_category, get_automated_clue, get_words_from_conceptnet, get_refined_clue, get_words_from_wikipedia
-import random
-from utils.ml_engine import ai_engine
+
 
 @st.dialog("Generator Losowej Krzyżówki")
 def open_random_generator_window():
