@@ -29,7 +29,7 @@ SPECIAL_CHARACTERS = {
 }
 
 
-@st.fragment(run_every=2)
+@st.fragment(run_every=5)
 def student_auto_finalizer(s_id, s_name):
     """
     To jest 'most'. Sprawdza czy w tabeli LIVE pojawił się status 'is_finished'.
@@ -37,29 +37,46 @@ def student_auto_finalizer(s_id, s_name):
     """
     from utils.db_supabase import get_supabase_client, save_result_to_db
 
-    supabase = get_supabase_client()
+    try:
+        supabase = get_supabase_client()
 
-    # Pobieramy rekord ucznia z tabeli LIVE
-    res = supabase.table("realtime_scores") \
-        .select("is_finished, completion_time, hint_count, score") \
-        .eq("session_id", s_id) \
-        .eq("student_name", s_name) \
-        .execute()
+        # Próbujemy pobrać dane
+        res = supabase.table("realtime_scores") \
+            .select("is_finished, completion_time, hint_count, score") \
+            .eq("session_id", s_id) \
+            .eq("student_name", s_name) \
+            .execute()
 
-    if res.data and res.data[0].get('is_finished'):
-        row = res.data[0]
-        success = save_result_to_db(
-            session_id=s_id,
-            student_name=s_name,
-            time_taken=row.get('completion_time'),
-            hint_count=row.get('hint_count', 0),
-            score=row.get('score', 0)  # <--- TO JEST KLUCZOWE
-        )
+        if res.data and len(res.data) > 0:
+            row = res.data[0]
 
-        if success:
-            supabase.table("realtime_scores").delete().eq("session_id", s_id).eq("student_name", s_name).execute()
-            st.session_state.result_submitted = True
-            st.rerun()
+            if row.get('is_finished') == True:
+                # Wyciągamy dane z rekordu LIVE
+                f_time = row.get('completion_time')
+                hints = row.get('hint_count', 0)
+                f_score = row.get('score', 0)
+
+                # Przesyłamy do tabeli RESULTS
+                success = save_result_to_db(
+                    session_id=s_id,
+                    student_name=s_name,
+                    time_taken=f_time,
+                    hint_count=hints,
+                    score=f_score  # Upewnij się, że Twoja funkcja przyjmuje 'score'!
+                )
+
+                if success:
+                    # Dopiero po sukcesie usuwamy rekord tymczasowy
+                    supabase.table("realtime_scores").delete() \
+                        .eq("session_id", s_id) \
+                        .eq("student_name", s_name).execute()
+
+                    st.session_state.result_submitted = True
+                    st.rerun()
+
+    except Exception as e:
+        # Logujemy błąd, ale nie przerywamy działania aplikacji
+        print(f"Błąd mostu (próba ponowna za 5s): {e}")
 
 
 @st.fragment(run_every=2)
@@ -676,7 +693,6 @@ def show_crossword_view(student_mode=False, session_name=None, student_name=None
                                 clearInterval(timerInterval);
                                 logEasyWords();
                                 const finalTime = document.getElementById("timer").innerText;
-                                const stats = calculateFinalScore(totalSeconds, allInputs.length);
                                 // WYŚLIJ DO BAZY
                                 finalizeSessionAuto(finalTime, stats);
                                 
