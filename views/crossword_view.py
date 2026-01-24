@@ -706,7 +706,7 @@ def show_crossword_view(student_mode=False, session_name=None, student_name=None
                                 logEasyWords();
                                 const finalTime = document.getElementById("timer").innerText;
                                 // WYŚLIJ DO BAZY
-                                finalizeSessionAuto(finalTime, stats);
+                                finalizeSessionAuto(finalTime);
                                 
                                 // Alert dajemy z małym opóźnieniem, żeby przeglądarka zdążyła wyrenderować kolory
                                 setTimeout(() => {{
