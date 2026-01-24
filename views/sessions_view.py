@@ -27,7 +27,7 @@ def render_results_table_fragment(s_id):
         # Dodajemy 'score' do widoku
         display_cols = {
             "student_name": "Uczeń",
-            "score": "Punkty (Fair Play)",
+            "score": "Punkty",
             "time_taken": "Czas",
             "hint_count": "Podpowiedzi",
             "created_at": "Data ukończenia"

@@ -50,7 +50,7 @@ def student_auto_finalizer(s_id, s_name):
         if res.data and len(res.data) > 0:
             row = res.data[0]
 
-            if row.get('is_finished') == True:
+            if row.get('is_finished'):
                 # Wyciągamy dane z rekordu LIVE
                 f_time = row.get('completion_time')
                 hints = row.get('hint_count', 0)
@@ -447,6 +447,7 @@ def show_crossword_view(student_mode=False, session_name=None, student_name=None
                         const sessionId = {st.session_state.get('active_session_id', 0)};
                         const studentName = "{student_name}";
                         const isAlreadySubmitted = {"true" if st.session_state.get('result_submitted') else "false"};
+                        const currentLang = "{current_lang}";
                         
                         let currentScore = 0;
                         let correctLettersSet = new Set();
@@ -457,28 +458,37 @@ def show_crossword_view(student_mode=False, session_name=None, student_name=None
                         
                         async function logEasyWords() {{
                             const inputs = document.querySelectorAll('input');
-                            const easyWords = new Set();
+                            const processedWords = new Set();
                         
                             inputs.forEach(input => {{
-                                // Jeśli pole jest wypełnione i NIE ma klasy 'hint-used'
-                                if (input.value.toUpperCase() === input.getAttribute("data-correct") && 
-                                    !input.classList.contains('hint-used')) {{
-                                    
-                                    // Pobieramy ID startowe słowa (nadrzędną komórkę z numerem)
-                                    const parentId = currentDirection === 'across' ? 
-                                                     input.getAttribute('data-parent-across') : 
-                                                     input.getAttribute('data-parent-down');
-                                    
-                                    if (parentId) {{
-                                        const numCell = document.getElementById(parentId);
-                                        const word = input.getAttribute("data-correct"); // Uproszczenie: logujemy litery jako część słowa
-                                        const clue = numCell ? numCell.querySelector('.tooltip').innerText : "";
-                                        
-                                        // Wysyłamy do tabeli ML jako ŁATWE
-                                        reportDifficulty(word, clue, "ŁATWE");
+                                const word = input.getAttribute("data-correct");
+                                if (word && !input.classList.contains('hint-used')) {{
+                                    if (!processedWords.has(word)) {{
+                                        // Teraz reportDifficulty jest już zdefiniowane!
+                                        reportDifficulty(word, "Rozwiązano poprawnie", "ŁATWE");
+                                        processedWords.add(word);
                                     }}
                                 }}
                             }});
+                        }}
+                        
+                        async function reportDifficulty(word, clue, label) {{
+                            try {{
+                                await fetch(`${{supabaseUrl}}/rest/v1/ml_training_data`, {{
+                                    method: 'POST',
+                                    headers: {{
+                                        'apikey': supabaseKey,
+                                        'Authorization': `Bearer ${{supabaseKey}}`,
+                                        'Content-Type': 'application/json'
+                                    }},
+                                    body: JSON.stringify({{
+                                        word: word.toUpperCase(),
+                                        clue: clue || "Brak opisu",
+                                        language: currentLang,
+                                        label: label
+                                    }})
+                                }});
+                            }} catch (e) {{ console.error("ML Error:", e); }}
                         }}
                         
                         async function logWordDifficulty(word, clue, label) {{
@@ -537,7 +547,8 @@ def show_crossword_view(student_mode=False, session_name=None, student_name=None
                                     headers: {{
                                         'apikey': supabaseKey,
                                         'Authorization': `Bearer ${{supabaseKey}}`,
-                                        'Content-Type': 'application/json'
+                                        'Content-Type': 'application/json',
+                                        'Prefer': 'resolution=merge-duplicates'
                                     }},
                                     body: JSON.stringify({{
                                         session_id: sessionId,
@@ -546,6 +557,7 @@ def show_crossword_view(student_mode=False, session_name=None, student_name=None
                                         progress_percent: 100,
                                         is_finished: true,
                                         completion_time: finalTime,
+                                        hint_count: hintCount,
                                         last_updated: new Date().toISOString()
                                     }})
                                 }});
