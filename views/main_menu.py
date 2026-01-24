@@ -185,7 +185,7 @@ def show_main_menu():
         st.session_state.table_df = pd.DataFrame(data, columns=["word", "clue"])
         st.session_state.last_loaded_set = current_set
 
-
+    if current_set:
         st.header(f"Edytujesz zestaw: {current_set.upper()}")
         set_meta = get_set_metadata(current_set)
         db_source = set_meta.get('source_lang', 'pl')
