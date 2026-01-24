@@ -9,7 +9,7 @@ from utils.db_supabase import (
 from utils.qr_manager import generate_qr_image
 
 
-@st.fragment(run_every=2)
+@st.fragment(run_every=5)
 def render_results_table_fragment(s_id):
     """Odświeża tabelę oficjalnych wyników, sortując ich po punktach Fair Play."""
     from utils.db_supabase import get_results_for_session_from_db

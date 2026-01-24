@@ -203,7 +203,7 @@ def get_all_sessions_from_db():
 def get_results_for_session_from_db(session_id):
     supabase = get_supabase_client()
     try:
-        response = supabase.table("results").select("student_name, time_taken, hint_count, submitted_at").eq("session_id", session_id).order("time_taken").execute()
+        response = supabase.table("results").select("student_name, score, time_taken, hint_count, submitted_at").eq("session_id", session_id).order("time_taken").execute()
         return response.data
     except Exception as e:
         st.error(f"Błąd pobierania wyników: {e}")
