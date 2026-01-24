@@ -250,14 +250,21 @@ def show_main_menu():
                             # PRZYCISK DODAWANIA
                             if st.button("Dodaj", key=f"add_sug_{i}"):
                                 # Dodajemy nowy wiersz do stanu sesji
-                                new_row = {
-                                    "word": word_to_check.upper(),
-                                    "clue": res['text']
-                                }
-                                st.session_state.table_data.append(new_row)
+                                st.session_state.table_df = pd.concat(
+                                    [
+                                        st.session_state.table_df,
+                                        pd.DataFrame([{
+                                            "word": word_to_check.upper(),
+                                            "clue": res["text"]
+                                        }])
+                                    ],
+                                    ignore_index=True
+                                )
+
+                                # Zapis do bazy
                                 success = update_set_content_in_db(
                                     current_set,
-                                    st.session_state.table_data,
+                                    st.session_state.table_df.to_dict(orient="records"),
                                     source_lang_code,
                                     target_lang_code
                                 )
