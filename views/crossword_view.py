@@ -31,12 +31,26 @@ SPECIAL_CHARACTERS = {
     "Angielski": ""
 }
 
-def img_to_base64(img):
-    """Konwertuje obrazek PIL na string base64 dla HTML."""
-    buffered = io.BytesIO()
-    img.save(buffered, format="PNG")
-    return base64.b64encode(buffered.getvalue()).decode()
 
+def img_to_base64(img_input):
+    """
+    Konwertuje obrazek na string base64.
+    Działa zarówno dla PIL Image, jak i BytesIO.
+    """
+    if img_input is None:
+        return ""
+
+    # Jeśli to już jest BytesIO (Twój przypadek)
+    if hasattr(img_input, 'getvalue'):
+        return base64.b64encode(img_input.getvalue()).decode()
+
+    # Jeśli to jest obiekt PIL Image
+    if hasattr(img_input, 'save'):
+        buffered = io.BytesIO()
+        img_input.save(buffered, format="PNG")
+        return base64.b64encode(buffered.getvalue()).decode()
+
+    return ""
 
 @st.dialog("Tryb projektora", width="large")
 def show_qr_projector_mode(url, session_name=""):
