@@ -192,7 +192,7 @@ def show_main_menu():
     if not st.session_state.table_df.empty and len(db_source) > 0:
         # Wywołujemy ocenę całego zestawu
         # Konwertujemy dataframe na listę słowników dla modelu
-        words_list = st.session_state.table_data.to_dict('records')
+        words_list = st.session_state.table_df.to_dict(orient="records")
         set_difficulty = ai_engine.get_set_difficulty(words_list, db_source)
 
         # Wyświetlenie metryki
