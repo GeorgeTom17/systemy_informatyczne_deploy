@@ -19,6 +19,7 @@ from utils.db_supabase import (
     delete_set_from_db
 
 )
+from utils.ml_engine import ai_engine
 
 
 @st.dialog("Generator Losowej Krzyżówki")
@@ -181,6 +182,26 @@ def show_main_menu():
         data = load_words_from_db(current_set) or []
         st.session_state.table_df = pd.DataFrame(data, columns=["word", "clue"])
         st.session_state.last_loaded_set = current_set
+
+    db_source = ""
+    if current_set:
+        set_meta = get_set_metadata(current_set)
+        db_source = set_meta.get('source_lang', 'pl')
+        db_target = set_meta.get('target_lang', 'en')
+
+    if not st.session_state.table_df.empty and len(db_source) > 0:
+        # Wywołujemy ocenę całego zestawu
+        # Konwertujemy dataframe na listę słowników dla modelu
+        words_list = st.session_state.table_data.to_dict('records')
+        set_difficulty = ai_engine.get_set_difficulty(words_list, db_source)
+
+        # Wyświetlenie metryki
+        col_ai, col_info = st.columns([1, 3])
+        with col_ai:
+            st.metric("Trudność zestawu (AI)", set_difficulty)
+        with col_info:
+            st.caption("Model analizuje długość słów, unikalne znaki oraz definicje, "
+                       "ucząc się na błędach uczniów zapisanych w bazie.")
 
     if current_set:
         st.header(f"Edytujesz zestaw: {current_set.upper()}")

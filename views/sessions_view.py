@@ -96,6 +96,17 @@ def show_leaderboard_modal(s_id):
     if st.button("Zamknij widok"):
         st.rerun()
 
+@st.dialog("Zeskanuj kod QR", width="large")
+def show_qr_projector_mode(url, session_name=""):
+    st.write(f"### Sesja: {session_name}")
+    # Generujemy duży kod QR (width=None lub duża wartość)
+    qr_img = generate_qr_image(url)
+    st.image(qr_img, use_container_width=True)
+    st.write("---")
+    st.info("Kod QR")
+    if st.button("Zamknij"):
+        st.rerun()
+
 def show_sessions_view():
     st.title("Twoje Sesje i Wyniki")
 
@@ -120,7 +131,13 @@ def show_sessions_view():
             with tab_info:
                 full_link = f"https://systemyinformatycznedeploy-3crdjb98tkhzrmwgfuccaz.streamlit.app/?session_id={s_id}"
                 st.code(full_link)
-                st.image(generate_qr_image(full_link), width=150)
+
+                col_small_qr, col_button = st.columns([1, 2])
+                with col_small_qr:
+                    st.image(generate_qr_image(full_link), width=150)
+                with col_button:
+                    if st.button("Powiększ kod QR", key=f"proj_{s_id}"):
+                        show_qr_projector_mode(full_link, s_name)
 
             with tab_results:
                 st.subheader("Oficjalna tabela wyników")

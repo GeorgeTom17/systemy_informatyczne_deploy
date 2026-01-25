@@ -28,6 +28,16 @@ SPECIAL_CHARACTERS = {
     "Angielski": ""
 }
 
+@st.dialog("Zeskanuj kod QR", width="large")
+def show_qr_projector_mode(url, session_name=""):
+    st.write(f"### Sesja: {session_name}")
+    # Generujemy duży kod QR (width=None lub duża wartość)
+    qr_img = generate_qr_image(url)
+    st.image(qr_img, use_container_width=True)
+    st.write("---")
+    st.info("Kod QR")
+    if st.button("Zamknij"):
+        st.rerun()
 
 @st.fragment(run_every=5)
 def student_auto_finalizer(s_id, s_name):
@@ -945,8 +955,14 @@ def show_crossword_view(student_mode=False, session_name=None, student_name=None
                             session_id = save_session_to_db(new_session_name, raw_code)
                             if session_id:
                                 full_link = f"{APP_BASE_URL}/?session_id={session_id}"
-                                st.image(generate_qr_image(full_link), use_container_width=True)
+
+                                # Wyświetlamy mały podgląd
+                                st.image(generate_qr_image(full_link), width=200)
                                 st.code(full_link)
+
+                                # Dodajemy przycisk powiększenia
+                                if st.button("Powiększ na cały ekran"):
+                                    show_qr_projector_mode(full_link, new_session_name)
         c1, c2 = st.columns(2)
         with c1:
             st.subheader("POZIOMO")
