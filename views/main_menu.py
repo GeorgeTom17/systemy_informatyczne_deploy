@@ -189,7 +189,7 @@ def show_main_menu():
         db_source = set_meta.get('source_lang', 'pl')
         db_target = set_meta.get('target_lang', 'en')
 
-    if not st.session_state.table_df.empty and len(db_source) > 0:
+    if current_set and len(db_source) > 0:
         # Wywołujemy ocenę całego zestawu
         # Konwertujemy dataframe na listę słowników dla modelu
         words_list = st.session_state.table_df.to_dict(orient="records")
