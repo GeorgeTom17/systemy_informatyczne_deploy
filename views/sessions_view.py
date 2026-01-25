@@ -7,7 +7,8 @@ from utils.db_supabase import (
     get_realtime_scores_from_db
 )
 from utils.qr_manager import generate_qr_image
-
+import io
+import base64
 
 @st.fragment(run_every=5)
 def render_results_table_fragment(s_id):
@@ -96,16 +97,34 @@ def show_leaderboard_modal(s_id):
     if st.button("Zamknij widok"):
         st.rerun()
 
-@st.dialog("Zeskanuj kod QR", width="large")
+
+def img_to_base64(img):
+    """Konwertuje obrazek PIL na string base64 dla HTML."""
+    buffered = io.BytesIO()
+    img.save(buffered, format="PNG")
+    return base64.b64encode(buffered.getvalue()).decode()
+
+
+@st.dialog("Tryb projektora", width="large")
 def show_qr_projector_mode(url, session_name=""):
-    st.write(f"### Sesja: {session_name}")
-    # Generujemy duży kod QR (width=None lub duża wartość)
+    st.write(f"{session_name}")
+
     qr_img = generate_qr_image(url)
-    st.image(qr_img, use_container_width=True)
+    img_base64 = img_to_base64(qr_img)
+
+    # CSS, który ogranicza wysokość obrazka do 70% wysokości ekranu (70vh)
+    # i centruje go w poziomie
+    html_code = f"""
+    <div style="display: flex; justify-content: center; align-items: center;">
+        <img src="data:image/png;base64,{img_base64}" 
+             style="max-height: 70vh; width: auto; border: 10px solid white; border-radius: 10px;">
+    </div>
+    """
+
+    st.markdown(html_code, unsafe_allow_html=True)
+
     st.write("---")
-    st.info("Kod QR")
-    if st.button("Zamknij"):
-        st.rerun()
+    st.info("Zeskanuj kod aparatem telefonu, aby dołączyć do sesji.")
 
 def show_sessions_view():
     st.title("Twoje Sesje i Wyniki")
