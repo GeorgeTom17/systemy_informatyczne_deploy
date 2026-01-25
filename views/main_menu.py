@@ -183,26 +183,6 @@ def show_main_menu():
         st.session_state.table_df = pd.DataFrame(data, columns=["word", "clue"])
         st.session_state.last_loaded_set = current_set
 
-    db_source = ""
-    if current_set:
-        set_meta = get_set_metadata(current_set)
-        db_source = set_meta.get('source_lang', 'pl')
-        db_target = set_meta.get('target_lang', 'en')
-
-    if current_set and len(db_source) > 0:
-        # Wywołujemy ocenę całego zestawu
-        # Konwertujemy dataframe na listę słowników dla modelu
-        words_list = st.session_state.table_df.to_dict(orient="records")
-        set_difficulty = ai_engine.get_set_difficulty(words_list, db_source)
-
-        # Wyświetlenie metryki
-        col_ai, col_info = st.columns([1, 3])
-        with col_ai:
-            st.metric("Trudność zestawu (AI)", set_difficulty)
-        with col_info:
-            st.caption("Model analizuje długość słów, unikalne znaki oraz definicje, "
-                       "ucząc się na błędach uczniów zapisanych w bazie.")
-
     if current_set:
         st.header(f"Edytujesz zestaw: {current_set.upper()}")
         set_meta = get_set_metadata(current_set)
@@ -294,6 +274,26 @@ def show_main_menu():
                                     st.error("Słowo zostało dodane lokalnie, ale wystąpił błąd zapisu w bazie.")
                 else:
                     st.warning("Brak propozycji.")
+
+        db_source = ""
+        if current_set:
+            set_meta = get_set_metadata(current_set)
+            db_source = set_meta.get('source_lang', 'pl')
+            db_target = set_meta.get('target_lang', 'en')
+
+        if current_set and len(db_source) > 0:
+            # Wywołujemy ocenę całego zestawu
+            # Konwertujemy dataframe na listę słowników dla modelu
+            words_list = st.session_state.table_df.to_dict(orient="records")
+            set_difficulty = ai_engine.get_set_difficulty(words_list, db_source)
+
+            # Wyświetlenie metryki
+            col_ai, col_info = st.columns([1, 3])
+            with col_ai:
+                st.metric("Trudność zestawu (AI)", set_difficulty)
+            with col_info:
+                st.caption("Model analizuje długość słów, unikalne znaki oraz definicje, "
+                           "ucząc się na błędach uczniów zapisanych w bazie.")
 
         st.divider()
         st.info("Kliknij w komórkę, aby edytować. Zaznacz wiersz i naciśnij Delete, aby usunąć.")
